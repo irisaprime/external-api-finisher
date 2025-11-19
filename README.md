@@ -84,14 +84,77 @@ uv sync --all-extras
 # 2. Configure environment
 cp .env.example .env  # Edit: DB, AI_SERVICE_URL, tokens
 
-# 3. Apply database migrations
+# 3. Setup database (choose one option)
+
+# Option A: Fresh database (recommended for first-time setup)
+# Drop existing database and recreate with new schema
+# WARNING: This will DELETE ALL DATA
+psql -U postgres -c "DROP DATABASE IF EXISTS arash_db;"
+psql -U postgres -c "CREATE DATABASE arash_db OWNER arash_user;"
+
+# Option B: Reset existing database (if already exists)
+# This removes the alembic_version table to allow clean migration
+psql -d arash_db -U arash_user -c "DROP TABLE IF EXISTS alembic_version CASCADE;"
+
+# 4. Apply database migrations
 make migrate-up
 
-# 4. Run service (API + integrated Telegram bot)
+# 5. Run service (API + integrated Telegram bot)
 make run-dev
 # IMPORTANT: THE DOCS IS DISABLED IN `make run` like the prod and stage.
 
 ```
+
+---
+
+## Database Migrations
+
+This project uses Alembic for database schema management. All migrations have been squashed into a single initial migration for clean deployment.
+
+### Migration Structure
+
+- **Single Initial Migration**: `alembic/versions/001_initial_schema.py`
+  - Creates all tables: `channels`, `api_keys`, `usage_logs`, `messages`
+  - Includes all indexes and foreign key constraints
+
+### Available Commands
+
+```bash
+# Apply all pending migrations
+make migrate-up
+
+# Rollback last migration
+make migrate-down
+
+# Check current migration status
+make migrate-status
+
+# Create new migration after model changes
+make migrate-create MSG="Description of changes"
+```
+
+### Resetting Database
+
+If you need to reset your database (development only):
+
+```bash
+# Method 1: Drop and recreate database
+psql -U postgres -c "DROP DATABASE IF EXISTS arash_db;"
+psql -U postgres -c "CREATE DATABASE arash_db OWNER arash_user;"
+make migrate-up
+
+# Method 2: Just reset migrations (keeps other data)
+psql -d arash_db -U arash_user -c "DROP TABLE IF EXISTS alembic_version CASCADE;"
+make migrate-up
+```
+
+### Migration History
+
+All previous migrations have been backed up in `alembic/versions_backup/` and squashed into the single initial migration. This ensures:
+- ✅ Clean deployment for new environments
+- ✅ No migration conflicts
+- ✅ Simplified migration history
+- ✅ Faster database initialization
 
 ---
 
