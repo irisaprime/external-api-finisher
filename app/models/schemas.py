@@ -329,7 +329,7 @@ class ErrorResponse(BaseModel):
 
     success: bool = Field(False, examples=[False])
     error: str = Field(
-        ..., examples=["Authentication required", "Invalid API key", "Team not found"]
+        ..., examples=["Authentication required", "Invalid API key", "Channel not found"]
     )
     detail: Optional[str] = Field(None, examples=["No valid API key provided"])
     timestamp: datetime = Field(default_factory=datetime.utcnow)

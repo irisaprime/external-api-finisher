@@ -332,8 +332,8 @@ class UsageStatsResponse(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "team_id": 1,
-                    "team_name": "تیم هوش مصنوعی داخلی",
+                    "channel_id": 1,
+                    "channel_name": "تیم هوش مصنوعی داخلی",
                     "period": {
                         "start": "2025-01-01T00:00:00",
                         "end": "2025-01-31T23:59:59",
@@ -429,10 +429,10 @@ class AdminDashboardResponse(BaseModel):
                                 "GPT-5 Chat": 40,
                                 "DeepSeek v3": 20
                             },
-                            "team_breakdown": [
+                            "channel_breakdown": [
                                 {
-                                    "team_id": 1,
-                                    "team_name": "Internal BI",
+                                    "channel_id": 1,
+                                    "channel_name": "Internal BI",
                                     "sessions": 100,
                                     "messages": 3000,
                                     "active": 15,
@@ -564,7 +564,7 @@ async def admin_dashboard(
 
     # Get channel name mapping for statistics
     channels = APIKeyManager.list_all_channels(db)
-    team_name_map = {channel.id: channel.title for channel in teams}
+    channel_name_map = {channel.id: channel.title for channel in channels}
 
     # Calculate statistics
     total_sessions = len(session_manager.sessions)
@@ -584,10 +584,10 @@ async def admin_dashboard(
         "models_used": defaultdict(int),
     }
 
-    team_stats = defaultdict(
+    channel_stats = defaultdict(
         lambda: {
-            "team_id": None,
-            "team_name": "Unknown",
+            "channel_id": None,
+            "channel_name": "Unknown",
             "sessions": 0,
             "messages": 0,
             "active": 0,
@@ -603,7 +603,7 @@ async def admin_dashboard(
             telegram_stats["messages"] += session.total_message_count
             if is_active:
                 telegram_stats["active"] += 1
-        elif session.team_id is not None:
+        elif session.channel_id is not None:
             internal_stats["sessions"] += 1
             internal_stats["messages"] += session.total_message_count
             friendly_model = get_friendly_model_name(session.current_model)
@@ -611,29 +611,29 @@ async def admin_dashboard(
             if is_active:
                 internal_stats["active"] += 1
 
-            team_id = session.team_id
-            if team_id not in team_stats:
-                team_stats[team_id]["team_id"] = team_id
-                team_stats[team_id]["team_name"] = team_name_map.get(team_id, f"Channel {team_id}")
+            channel_id = session.channel_id
+            if channel_id not in channel_stats:
+                channel_stats[channel_id]["channel_id"] = channel_id
+                channel_stats[channel_id]["channel_name"] = channel_name_map.get(channel_id, f"Channel {channel_id}")
 
-            team_stats[team_id]["sessions"] += 1
-            team_stats[team_id]["messages"] += session.total_message_count
-            team_stats[team_id]["models_used"][friendly_model] += 1
+            channel_stats[channel_id]["sessions"] += 1
+            channel_stats[channel_id]["messages"] += session.total_message_count
+            channel_stats[channel_id]["models_used"][friendly_model] += 1
             if is_active:
-                team_stats[team_id]["active"] += 1
+                channel_stats[channel_id]["active"] += 1
 
-    team_breakdown = [
+    channel_breakdown = [
         {
-            "team_id": stats["team_id"],
-            "team_name": stats["team_name"],
+            "channel_id": stats["channel_id"],
+            "channel_name": stats["channel_name"],
             "sessions": stats["sessions"],
             "messages": stats["messages"],
             "active": stats["active"],
             "models_used": dict(stats["models_used"]),
         }
-        for stats in team_stats.values()
+        for stats in channel_stats.values()
     ]
-    team_breakdown.sort(key=lambda x: x["sessions"], reverse=True)
+    channel_breakdown.sort(key=lambda x: x["sessions"], reverse=True)
 
     return AdminDashboardResponse(
         service="Arash External API Service",
@@ -674,7 +674,7 @@ async def admin_dashboard(
             "internal": {
                 **internal_stats,
                 "models_used": dict(internal_stats["models_used"]),
-                "team_breakdown": team_breakdown,
+                "channel_breakdown": channel_breakdown,
             },
         },
     )
@@ -1068,26 +1068,26 @@ async def get_channels(
     - Optional total report when totally=true
 
     Examples:
-    - GET /admin/teams - List all active teams with usage
-    - GET /admin/teams?team_id=1 - Get specific channel with usage
-    - GET /admin/teams?totally=true - List all teams with total report
-    - GET /admin/teams?active_only=false&days=7 - All teams with 7-day usage
+    - GET /admin/teams - List all active channels with usage
+    - GET /admin/teams?channel_id=1 - Get specific channel with usage
+    - GET /admin/teams?totally=true - List all channels with total report
+    - GET /admin/teams?active_only=false&days=7 - All channels with 7-day usage
     """
     db = get_db_session()
 
-    # Get teams based on filter
+    # Get channels based on filter
     if channel_id:
-        channel = APIKeyManager.get_channel_by_id(db, team_id)
-        if not team:
+        channel = APIKeyManager.get_channel_by_id(db, channel_id)
+        if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
-        teams = [team]
+        channels = [channel]
     else:
         channels = APIKeyManager.list_all_channels(db, active_only=active_only)
 
     # Calculate start date for usage statistics
     start_date = datetime.utcnow() - timedelta(days=days)
 
-    # Build response with API key prefix and usage for each team
+    # Build response with API key prefix and usage for each channel
     responses = []
     total_requests = 0
     total_successful = 0
@@ -1095,15 +1095,15 @@ async def get_channels(
     total_cost = 0.0
 
     for channel in channels:
-        # Get the channel's API key (one per team)
+        # Get the channel's API key (one per channel)
         api_key_obj = db.query(APIKey).filter(APIKey.channel_id == channel.id).first()
 
         # Get usage statistics for the channel
         try:
-            usage_stats = UsageTracker.get_team_usage_stats(db, channel.id, start_date)
-            # Remove team_id and team_name from usage stats (already in ChannelResponse)
-            usage_stats.pop("team_id", None)
-            usage_stats.pop("team_name", None)
+            usage_stats = UsageTracker.get_channel_usage_stats(db, channel.id, start_date)
+            # Remove channel_id and channel_name from usage stats (already in ChannelResponse)
+            usage_stats.pop("channel_id", None)
+            usage_stats.pop("channel_name", None)
 
             # Aggregate for total report
             if totally:
@@ -1320,7 +1320,7 @@ async def update_channel(
 
     channel = APIKeyManager.update_channel(
         db=db,
-        team_id=team_id,
+        channel_id=channel_id,
         title=channel_data.title,
         channel_id=channel_data.channel_id,
         access_type=channel_data.access_type,
@@ -1334,7 +1334,7 @@ async def update_channel(
         allow_model_switch=channel_data.allow_model_switch,
     )
 
-    if not team:
+    if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
 
     # Get the channel's API key
@@ -1343,9 +1343,9 @@ async def update_channel(
     # Get usage statistics
     start_date = datetime.utcnow() - timedelta(days=days)
     try:
-        usage_stats = UsageTracker.get_team_usage_stats(db, channel.id, start_date)
-        usage_stats.pop("team_id", None)
-        usage_stats.pop("team_name", None)
+        usage_stats = UsageTracker.get_channel_usage_stats(db, channel.id, start_date)
+        usage_stats.pop("channel_id", None)
+        usage_stats.pop("channel_name", None)
     except Exception as e:
         logger.warning(f"Failed to get usage stats for channel {channel.id}: {e}")
         usage_stats = None

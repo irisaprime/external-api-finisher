@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class UsageTracker:
-    """Tracks and manages API usage for teams and API keys"""
+    """Tracks and manages API usage for channels and API keys"""
 
     @staticmethod
     def log_usage(
         db: Session,
         api_key_id: int,
-        team_id: int,
+        channel_id: int,
         session_id: str,
         platform: str,
         model_used: str,
@@ -39,7 +39,7 @@ class UsageTracker:
         Args:
             db: Database session
             api_key_id: API key ID
-            team_id: Team ID
+            channel_id: Channel ID
             session_id: Session identifier (masked)
             platform: Platform name
             model_used: Model name (will be converted to friendly name)
@@ -57,7 +57,7 @@ class UsageTracker:
 
         usage_log = UsageLog(
             api_key_id=api_key_id,
-            team_id=team_id,
+            channel_id=channel_id,
             session_id=session_id,
             platform=platform,
             model_used=friendly_model,
@@ -72,7 +72,7 @@ class UsageTracker:
         db.commit()
 
         logger.debug(
-            f"Logged usage for API key ID {api_key_id}, team ID {team_id}, "
+            f"Logged usage for API key ID {api_key_id}, channel ID {channel_id}, "
             f"model: {friendly_model}, success: {success}"
         )
 
@@ -81,7 +81,7 @@ class UsageTracker:
     @staticmethod
     def check_quota(db: Session, api_key: APIKey, period: str = "daily") -> Dict[str, any]:
         """
-        Check if API key or team has exceeded quota.
+        Check if API key or channel has exceeded quota.
 
         Args:
             db: Database session
@@ -168,18 +168,18 @@ class UsageTracker:
         }
 
     @staticmethod
-    def get_team_usage_stats(
+    def get_channel_usage_stats(
         db: Session,
-        team_id: int,
+        channel_id: int,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> Dict[str, any]:
         """
-        Get usage statistics for a team.
+        Get usage statistics for a channel.
 
         Args:
             db: Database session
-            team_id: Team ID
+            channel_id: Channel ID
             start_date: Start date for stats (default: 30 days ago)
             end_date: End date for stats (default: now)
 
@@ -195,7 +195,7 @@ class UsageTracker:
         total_requests = (
             db.query(func.count(UsageLog.id))
             .filter(
-                UsageLog.team_id == team_id,
+                UsageLog.channel_id == channel_id,
                 UsageLog.timestamp >= start_date,
                 UsageLog.timestamp <= end_date,
             )
@@ -206,7 +206,7 @@ class UsageTracker:
         successful_requests = (
             db.query(func.count(UsageLog.id))
             .filter(
-                UsageLog.team_id == team_id,
+                UsageLog.channel_id == channel_id,
                 UsageLog.timestamp >= start_date,
                 UsageLog.timestamp <= end_date,
                 UsageLog.success,
@@ -221,7 +221,7 @@ class UsageTracker:
         total_tokens = (
             db.query(func.sum(UsageLog.tokens_used))
             .filter(
-                UsageLog.team_id == team_id,
+                UsageLog.channel_id == channel_id,
                 UsageLog.timestamp >= start_date,
                 UsageLog.timestamp <= end_date,
                 UsageLog.tokens_used.isnot(None),
@@ -234,7 +234,7 @@ class UsageTracker:
         total_cost = (
             db.query(func.sum(UsageLog.estimated_cost))
             .filter(
-                UsageLog.team_id == team_id,
+                UsageLog.channel_id == channel_id,
                 UsageLog.timestamp >= start_date,
                 UsageLog.timestamp <= end_date,
                 UsageLog.estimated_cost.isnot(None),
@@ -247,7 +247,7 @@ class UsageTracker:
         avg_response_time = (
             db.query(func.avg(UsageLog.response_time_ms))
             .filter(
-                UsageLog.team_id == team_id,
+                UsageLog.channel_id == channel_id,
                 UsageLog.timestamp >= start_date,
                 UsageLog.timestamp <= end_date,
                 UsageLog.response_time_ms.isnot(None),
@@ -260,7 +260,7 @@ class UsageTracker:
         model_usage = (
             db.query(UsageLog.model_used, func.count(UsageLog.id).label("count"))
             .filter(
-                UsageLog.team_id == team_id,
+                UsageLog.channel_id == channel_id,
                 UsageLog.timestamp >= start_date,
                 UsageLog.timestamp <= end_date,
             )
@@ -271,7 +271,7 @@ class UsageTracker:
         )
 
         return {
-            "team_id": team_id,
+            "channel_id": channel_id,
             "period": {
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat(),
@@ -365,15 +365,15 @@ class UsageTracker:
     @staticmethod
     def get_recent_usage(
         db: Session,
-        team_id: Optional[int] = None,
+        channel_id: Optional[int] = None,
         limit: int = 100,
     ) -> List[UsageLog]:
         """
-        Get recent usage logs (team-based tracking only).
+        Get recent usage logs (channel-based tracking only).
 
         Args:
             db: Database session
-            team_id: Filter by team ID (optional)
+            channel_id: Filter by channel ID (optional)
             limit: Maximum number of logs to return
 
         Returns:
@@ -381,7 +381,7 @@ class UsageTracker:
         """
         query = db.query(UsageLog)
 
-        if team_id is not None:
-            query = query.filter(UsageLog.team_id == team_id)
+        if channel_id is not None:
+            query = query.filter(UsageLog.channel_id == channel_id)
 
         return query.order_by(UsageLog.timestamp.desc()).limit(limit).all()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CLI tool for managing teams and API keys
+CLI tool for managing channels and API keys
 """
 
 import sys
@@ -30,105 +30,105 @@ def init_database():
     print("[OK] Database initialized successfully")
 
 
-def create_team(name: str, daily_quota: int = None, monthly_quota: int = None):
-    """Create a new team"""
+def create_channel(name: str, daily_quota: int = None, monthly_quota: int = None):
+    """Create a new channel"""
     db = get_database()
     session = next(db.get_session())
 
     try:
-        team = APIKeyManager.create_team(
+        channel = APIKeyManager.create_channel(
             db=session,
             name=name,
             daily_quota=daily_quota,
             monthly_quota=monthly_quota,
         )
-        print(f"[OK] Team created successfully!")
-        print(f"  ID: {team.id}")
-        print(f"  Display Name: {team.display_name}")
-        print(f"  Platform: {team.platform_name}")
-        print(f"  Daily Quota: {team.daily_quota or 'Unlimited'}")
-        print(f"  Monthly Quota: {team.monthly_quota or 'Unlimited'}")
+        print(f"[OK] Channel created successfully!")
+        print(f"  ID: {channel.id}")
+        print(f"  Display Name: {channel.display_name}")
+        print(f"  Platform: {channel.platform_name}")
+        print(f"  Daily Quota: {channel.daily_quota or 'Unlimited'}")
+        print(f"  Monthly Quota: {channel.monthly_quota or 'Unlimited'}")
     except Exception as e:
-        print(f"[ERROR] Error creating team: {e}")
+        print(f"[ERROR] Error creating channel: {e}")
         sys.exit(1)
 
 
-def list_teams():
-    """List all teams"""
+def list_channels():
+    """List all channels"""
     db = get_database()
     session = next(db.get_session())
 
-    teams = APIKeyManager.list_all_teams(session, active_only=False)
+    channels = APIKeyManager.list_all_channels(session, active_only=False)
 
-    if not teams:
-        print("No teams found")
+    if not channels:
+        print("No channels found")
         return
 
     table_data = []
-    for team in teams:
+    for channel in channels:
         table_data.append([
-            team.id,
-            team.display_name,
-            team.platform_name,
-            team.daily_quota or "unlimited",
-            team.monthly_quota or "unlimited",
-            "active" if team.is_active else "inactive",
-            team.created_at.strftime("%Y-%m-%d"),
+            channel.id,
+            channel.display_name,
+            channel.platform_name,
+            channel.daily_quota or "unlimited",
+            channel.monthly_quota or "unlimited",
+            "active" if channel.is_active else "inactive",
+            channel.created_at.strftime("%Y-%m-%d"),
         ])
 
     headers = ["ID", "Display Name", "Platform", "Daily Quota", "Monthly Quota", "Active", "Created"]
     print(tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
-def delete_team(team_id: int, force: bool = False):
-    """Delete a team"""
+def delete_channel(channel_id: int, force: bool = False):
+    """Delete a channel"""
     db = get_database()
     session = next(db.get_session())
 
     try:
-        # Get team name before deletion
-        team = APIKeyManager.get_team_by_id(session, team_id)
-        if not team:
-            print(f"[ERROR] Team with ID {team_id} not found")
+        # Get channel name before deletion
+        channel = APIKeyManager.get_channel_by_id(session, channel_id)
+        if not channel:
+            print(f"[ERROR] Channel with ID {channel_id} not found")
             sys.exit(1)
 
-        team_name = team.display_name
+        channel_name = channel.display_name
 
         # Confirm deletion
         if not force:
-            response = input(f"Are you sure you want to delete team '{team_name}' (ID: {team_id})? [y/N]: ")
+            response = input(f"Are you sure you want to delete channel '{channel_name}' (ID: {channel_id})? [y/N]: ")
             if response.lower() != 'y':
                 print("Deletion cancelled")
                 return
 
-        success = APIKeyManager.delete_team(session, team_id, force=force)
+        success = APIKeyManager.delete_channel(session, channel_id, force=force)
 
         if success:
-            print(f"[OK] Team '{team_name}' deleted successfully (ID: {team_id})")
+            print(f"[OK] Channel '{channel_name}' deleted successfully (ID: {channel_id})")
         else:
-            print(f"[ERROR] Failed to delete team")
+            print(f"[ERROR] Failed to delete channel")
             sys.exit(1)
 
     except ValueError as e:
         print(f"[ERROR] {e}")
-        print("\nUse --force to delete team along with all API keys and usage logs")
+        print("\nUse --force to delete channel along with all API keys and usage logs")
         sys.exit(1)
     except Exception as e:
-        print(f"[ERROR] Error deleting team: {e}")
+        print(f"[ERROR] Error deleting channel: {e}")
         sys.exit(1)
 
 
 def create_api_key(
-    team_id: int,
+    channel_id: int,
     name: str,
     description: str = None,
     expires_in_days: int = None,
 ):
     """
-    Create a new API key for external teams (clients)
+    Create a new API key for external channels (clients)
 
     TWO-PATH AUTHENTICATION:
-    - This creates API keys for EXTERNAL TEAMS (clients using chat service)
+    - This creates API keys for EXTERNAL CHANNELS (clients using chat service)
     - Super admin access is via SUPER_ADMIN_API_KEYS environment variable (NOT database)
 
     All database API keys have EQUAL access:
@@ -142,22 +142,22 @@ def create_api_key(
     session = next(db.get_session())
 
     try:
-        # Verify team exists
-        team = APIKeyManager.get_team_by_id(session, team_id)
-        if not team:
-            print(f"[ERROR] Team with ID {team_id} not found")
+        # Verify channel exists
+        channel = APIKeyManager.get_channel_by_id(session, channel_id)
+        if not channel:
+            print(f"[ERROR] Channel with ID {channel_id} not found")
             sys.exit(1)
 
         api_key_string, api_key_obj = APIKeyManager.create_api_key(
             db=session,
-            team_id=team_id,
+            channel_id=channel_id,
             name=name,
             description=description,
             expires_in_days=expires_in_days,
             created_by="cli-script",
         )
 
-        print("[OK] Team API Key created successfully!")
+        print("[OK] Channel API Key created successfully!")
         print()
         print("=" * 60)
         print("IMPORTANT: Save this API key securely!")
@@ -170,10 +170,10 @@ def create_api_key(
         print()
         print(f"  Key Prefix: {api_key_obj.key_prefix}")
         print(f"  Name: {api_key_obj.name}")
-        print(f"  Team: {team.display_name} (ID: {team_id})")
+        print(f"  Channel: {channel.display_name} (ID: {channel_id})")
         print(f"  Expires: {api_key_obj.expires_at or 'Never'}")
         print()
-        print("  ℹ️  ACCESS: /api/v1/chat endpoint only (external team)")
+        print("  ℹ️  ACCESS: /api/v1/chat endpoint only (external channel)")
         print("  ℹ️  Cannot access /api/v1/admin/* endpoints")
         print()
         print("  NOTE: Super admin access is via SUPER_ADMIN_API_KEYS environment variable")
@@ -183,19 +183,19 @@ def create_api_key(
         sys.exit(1)
 
 
-def list_api_keys(team_id: int = None):
+def list_api_keys(channel_id: int = None):
     """List API keys"""
     db = get_database()
     session = next(db.get_session())
 
-    if team_id:
-        keys = APIKeyManager.list_team_api_keys(session, team_id)
+    if channel_id:
+        keys = APIKeyManager.list_channel_api_keys(session, channel_id)
     else:
-        # List all teams and their keys
-        teams = APIKeyManager.list_all_teams(session)
+        # List all channels and their keys
+        channels = APIKeyManager.list_all_channels(session)
         keys = []
-        for team in teams:
-            keys.extend(APIKeyManager.list_team_api_keys(session, team.id))
+        for channel in channels:
+            keys.extend(APIKeyManager.list_channel_api_keys(session, channel.id))
 
     if not keys:
         print("No API keys found")
@@ -207,16 +207,16 @@ def list_api_keys(team_id: int = None):
             key.id,
             key.key_prefix,
             key.name,
-            key.team.display_name,
+            key.channel.display_name,
             "active" if key.is_active else "inactive",
             key.last_used_at.strftime("%Y-%m-%d %H:%M") if key.last_used_at else "Never",
             key.expires_at.strftime("%Y-%m-%d") if key.expires_at else "Never",
         ])
 
-    headers = ["ID", "Prefix", "Name", "Team", "Active", "Last Used", "Expires"]
+    headers = ["ID", "Prefix", "Name", "Channel", "Active", "Last Used", "Expires"]
     print(tabulate(table_data, headers=headers, tablefmt="grid"))
     print()
-    print("NOTE: All database API keys are for external teams (chat service only)")
+    print("NOTE: All database API keys are for external channels (chat service only)")
     print("      Super admin access is via SUPER_ADMIN_API_KEYS environment variable")
 
 
@@ -244,14 +244,14 @@ def revoke_api_key(key_id: int, permanent: bool = False):
         sys.exit(1)
 
 
-def show_usage(team_id: int = None, api_key_id: int = None, days: int = 30):
+def show_usage(channel_id: int = None, api_key_id: int = None, days: int = 30):
     """Show usage statistics"""
     db = get_database()
     session = next(db.get_session())
 
-    if team_id:
-        stats = UsageTracker.get_team_usage_stats(session, team_id)
-        print(f"\nUsage Statistics for Team ID {team_id}")
+    if channel_id:
+        stats = UsageTracker.get_channel_usage_stats(session, channel_id)
+        print(f"\nUsage Statistics for Channel ID {channel_id}")
         print("=" * 60)
         print(f"Period: {stats['period']['start']} to {stats['period']['end']}")
         print(f"\nRequests:")
@@ -279,40 +279,40 @@ def show_usage(team_id: int = None, api_key_id: int = None, days: int = 30):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Manage teams and API keys")
+    parser = argparse.ArgumentParser(description="Manage channels and API keys")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # Init database
     subparsers.add_parser("init", help="Initialize the database")
 
-    # Team commands
-    team_parser = subparsers.add_parser("team", help="Team management")
-    team_subparsers = team_parser.add_subparsers(dest="subcommand")
+    # Channel commands
+    channel_parser = subparsers.add_parser("channel", help="Channel management")
+    channel_subparsers = channel_parser.add_subparsers(dest="subcommand")
 
-    team_create = team_subparsers.add_parser("create", help="Create a new team")
-    team_create.add_argument("name", help="Team name")
-    team_create.add_argument("--daily-quota", type=int, help="Daily request quota")
-    team_create.add_argument("--monthly-quota", type=int, help="Monthly request quota")
+    channel_create = channel_subparsers.add_parser("create", help="Create a new channel")
+    channel_create.add_argument("name", help="Channel name")
+    channel_create.add_argument("--daily-quota", type=int, help="Daily request quota")
+    channel_create.add_argument("--monthly-quota", type=int, help="Monthly request quota")
 
-    team_subparsers.add_parser("list", help="List all teams")
+    channel_subparsers.add_parser("list", help="List all channels")
 
-    team_delete = team_subparsers.add_parser("delete", help="Delete a team")
-    team_delete.add_argument("team_id", type=int, help="Team ID")
-    team_delete.add_argument("--force", action="store_true", help="Force delete (removes all keys and usage logs)")
+    channel_delete = channel_subparsers.add_parser("delete", help="Delete a channel")
+    channel_delete.add_argument("channel_id", type=int, help="Channel ID")
+    channel_delete.add_argument("--force", action="store_true", help="Force delete (removes all keys and usage logs)")
 
     # API Key commands
     key_parser = subparsers.add_parser("key", help="API key management")
     key_subparsers = key_parser.add_subparsers(dest="subcommand")
 
     key_create = key_subparsers.add_parser("create", help="Create a new API key")
-    key_create.add_argument("team_id", type=int, help="Team ID")
+    key_create.add_argument("channel_id", type=int, help="Channel ID")
     key_create.add_argument("name", help="Key name")
     key_create.add_argument("--level", choices=["user", "team_lead", "admin"], default="user", help="Access level")
     key_create.add_argument("--description", help="Key description")
     key_create.add_argument("--expires", type=int, help="Expiration in days")
 
     key_list = key_subparsers.add_parser("list", help="List API keys")
-    key_list.add_argument("--team-id", type=int, help="Filter by team ID")
+    key_list.add_argument("--channel-id", type=int, help="Filter by channel ID")
 
     key_revoke = key_subparsers.add_parser("revoke", help="Revoke an API key")
     key_revoke.add_argument("key_id", type=int, help="API key ID")
@@ -320,7 +320,7 @@ def main():
 
     # Usage commands
     usage_parser = subparsers.add_parser("usage", help="View usage statistics")
-    usage_parser.add_argument("--team-id", type=int, help="Team ID")
+    usage_parser.add_argument("--channel-id", type=int, help="Channel ID")
     usage_parser.add_argument("--key-id", type=int, help="API Key ID")
     usage_parser.add_argument("--days", type=int, default=30, help="Number of days to look back")
 
@@ -334,28 +334,28 @@ def main():
     if args.command == "init":
         init_database()
 
-    elif args.command == "team":
+    elif args.command == "channel":
         if args.subcommand == "create":
-            create_team(args.name, args.daily_quota, args.monthly_quota)
+            create_channel(args.name, args.daily_quota, args.monthly_quota)
         elif args.subcommand == "list":
-            list_teams()
+            list_channels()
         elif args.subcommand == "delete":
-            delete_team(args.team_id, args.force)
+            delete_channel(args.channel_id, args.force)
         else:
-            team_parser.print_help()
+            channel_parser.print_help()
 
     elif args.command == "key":
         if args.subcommand == "create":
-            create_api_key(args.team_id, args.name, args.level, args.description, args.expires)
+            create_api_key(args.channel_id, args.name, args.level, args.description, args.expires)
         elif args.subcommand == "list":
-            list_api_keys(args.team_id)
+            list_api_keys(args.channel_id)
         elif args.subcommand == "revoke":
             revoke_api_key(args.key_id, args.permanent)
         else:
             key_parser.print_help()
 
     elif args.command == "usage":
-        show_usage(args.team_id, args.key_id, args.days)
+        show_usage(args.channel_id, args.key_id, args.days)
 
 
 if __name__ == "__main__":

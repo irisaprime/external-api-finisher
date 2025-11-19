@@ -172,14 +172,14 @@ class CommandProcessor:
             db.query(Message).filter(
                 Message.platform == session.platform,
                 Message.user_id == session.user_id,
-                Message.team_id == session.team_id if session.team_id else Message.team_id.is_(None),
+                Message.channel_id == session.channel_id if session.channel_id else Message.channel_id.is_(None),
                 Message.cleared_at.is_(None),  # Only update uncleared messages
             ).update({"cleared_at": clear_time})
 
             db.commit()
             logger.info(
                 f"Marked messages as cleared for user={session.user_id} "
-                f"platform={session.platform} team={session.team_id}"
+                f"platform={session.platform} channel={session.channel_id}"
             )
         except Exception as e:
             logger.error(f"Error marking messages as cleared in DB: {e}")
