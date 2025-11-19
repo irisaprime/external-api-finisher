@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: arash-external-api
+  namespace: arash
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+  selector:
+    app: arash-external-api

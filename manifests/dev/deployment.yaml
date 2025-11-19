@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arash-external-api-dev
+  namespace: arash
+spec:
+  selector:
+    matchLabels:
+      app: arash-external-api-dev
+  template:
+    metadata:
+      labels:
+        app: arash-external-api-dev
+    spec:
+      containers:
+      - envFrom:
+        - secretRef:
+            name: arash-external-api-dev
+            optional: true
+        env:
+        - name: ENVIRONMENT
+          value: "dev"
+        - name: AI_SERVICE_URL
+          value: "http://openrouter-agent:8000"
+        - name: SESSION_TIMEOUT_MINUTES
+          value: "30"
+        - name: TELEGRAM_DEFAULT_MODEL
+          value: "google/gemini-2.0-flash-001"
+        - name: TELEGRAM_MODELS
+          value: "google/gemini-2.0-flash-001,google/gemini-2.5-flash,deepseek/deepseek-chat-v3-0324,openai/gpt-4o-mini"
+        - name: TELEGRAM_RATE_LIMIT
+          value: "20"
+        - name: TELEGRAM_MAX_HISTORY
+          value: "10"
+        - name: TELEGRAM_COMMANDS
+          value: "start,help,status,clear,model,models"
+        - name: TELEGRAM_ALLOW_MODEL_SWITCH
+          value: "true"
+        - name: INTERNAL_DEFAULT_MODEL
+          value: "openai/gpt-5-chat"
+        - name: INTERNAL_MODELS
+          value: "google/gemini-2.0-flash-001,deepseek/deepseek-chat-v3-0324,openai/gpt-4o-mini,anthropic/claude-sonnet-4,openai/gpt-4.1,openai/gpt-4o-search-preview,x-ai/grok-4,meta-llama/llama-4-maverick,google/gemini-2.5-flash,openai/gpt-5-chat"
+        - name: INTERNAL_RATE_LIMIT
+          value: "60"
+        - name: INTERNAL_MAX_HISTORY
+          value: "20"
+        - name: INTERNAL_WEBHOOK_SECRET
+          value: ""
+        - name: LOG_LEVEL
+          value: "DEBUG"
+        - name: LOG_FILE
+          value: "logs/arash_bot_service.log"
+        - name: LOG_TIMESTAMP
+          value: "ir"
+        - name: LOG_COLOR
+          value: "auto"
+        - name: NO_COLOR
+          value: "0"
+        - name: LOG_TIMESTAMP_PRECISION
+          value: "3"
+        - name: ENABLE_IMAGE_PROCESSING
+          value: "true"
+        - name: MAX_IMAGE_SIZE_MB
+          value: "20"
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "external_api_dev"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: external-api-dev.postgres.credentials.postgresql.acid.zalan.do
+              key: password
+        - name: DB_NAME
+          value: "external_api_dev"
+        - name: REDIS_URL
+          value: ""
+        - name: API_HOST
+          value: "0.0.0.0"
+        - name: API_PORT
+          value: "3000"
+        - name: RUN_TELEGRAM_BOT
+          value: "false"
+        - name: ENABLE_API_DOCS
+          value: "false"
+        - name: CORS_ORIGINS
+          value: "*"
+        image: repo3.lucidfirm.ir/primebot/arash-external-api:dev-latest
+        imagePullPolicy: Always
+        name: arash-external-api-dev
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: "1m"
+            memory: 100Mi
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Always

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+    ingress.kubernetes.io/proxy-body-size: 25m
+  name: arash-external-api
+  namespace: arash
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: arash-api.irisaprime.ir
+    http:
+      paths:
+      - backend:
+          service:
+            name: arash-external-api
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
