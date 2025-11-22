@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.models.database import Base, Team
+from app.models.database import Base, Channel
 
 
 @pytest.fixture(scope="function")
@@ -32,18 +32,19 @@ def test_db():
 
 @pytest.fixture
 def test_team(test_db: Session):
-    """Create a test team"""
-    team = Team(
-        display_name="Test Team",
-        platform_name="Test-Platform",
+    """Create a test channel (fixture kept as test_team for backward compatibility)"""
+    channel = Channel(
+        title="Test Team",
+        channel_id="Test-Platform",
+        access_type="private",
         monthly_quota=100000,
         daily_quota=5000,
         is_active=True,
     )
-    test_db.add(team)
+    test_db.add(channel)
     test_db.commit()
-    test_db.refresh(team)
-    return team
+    test_db.refresh(channel)
+    return channel
 
 
 @pytest.fixture

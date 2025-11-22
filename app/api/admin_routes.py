@@ -194,7 +194,7 @@ class ChannelResponse(BaseModel):
     """
     Response model for channel with usage statistics.
 
-    Includes API key prefix and usage data (one key per team).
+    Includes API key prefix and usage data (one key per channel).
 
     Field Distinction:
     - title: Human-friendly name for display purposes
@@ -840,12 +840,12 @@ async def create_channel(
     """
     db = get_db_session()
 
-    # Check if platform_name already exists
-    existing_channel = APIKeyManager.get_channel_by_channel_id(db, channel_data.platform_name)
+    # Check if channel_id already exists
+    existing_channel = APIKeyManager.get_channel_by_channel_id(db, channel_data.channel_id)
     if existing_channel:
         raise HTTPException(
             status_code=400,
-            detail=f"Channel with platform name '{channel_data.platform_name}' already exists",
+            detail=f"Channel with channel_id '{channel_data.channel_id}' already exists",
         )
 
     # Create channel with auto-generated API key
@@ -865,9 +865,9 @@ async def create_channel(
 
     return ChannelCreateResponse(
         id=channel.id,
-        display_name=channel.title,
-        platform_name=channel.channel_id,
-        platform_type=channel.access_type,
+        title=channel.title,
+        channel_id=channel.channel_id,
+        access_type=channel.access_type,
         monthly_quota=channel.monthly_quota,
         daily_quota=channel.daily_quota,
         is_active=channel.is_active,
@@ -1118,9 +1118,9 @@ async def get_channels(
         responses.append(
             ChannelResponse(
                 id=channel.id,
-                display_name=channel.title,
-                platform_name=channel.channel_id,
-                platform_type=channel.access_type,
+                title=channel.title,
+                channel_id=channel.channel_id,
+                access_type=channel.access_type,
                 monthly_quota=channel.monthly_quota,
                 daily_quota=channel.daily_quota,
                 is_active=channel.is_active,
@@ -1322,7 +1322,7 @@ async def update_channel(
         db=db,
         channel_id=channel_id,
         title=channel_data.title,
-        channel_id=channel_data.channel_id,
+        channel_id_str=channel_data.channel_id,
         access_type=channel_data.access_type,
         monthly_quota=channel_data.monthly_quota,
         daily_quota=channel_data.daily_quota,
@@ -1352,9 +1352,9 @@ async def update_channel(
 
     return ChannelResponse(
         id=channel.id,
-        display_name=channel.title,
-        platform_name=channel.channel_id,
-        platform_type=channel.access_type,
+        title=channel.title,
+        channel_id=channel.channel_id,
+        access_type=channel.access_type,
         monthly_quota=channel.monthly_quota,
         daily_quota=channel.daily_quota,
         is_active=channel.is_active,
