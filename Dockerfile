@@ -34,7 +34,7 @@ LABEL maintainer="Arash Team <team@example.com>" \
       version="1.0.0" \
       description="Arash External API Service - Multi-platform AI chatbot with integrated Telegram bot" \
       org.opencontainers.image.title="Arash Bot" \
-      org.opencontainers.image.description="Multi-platform AI chatbot with team-based access control" \
+      org.opencontainers.image.description="Multi-platform AI chatbot with channel-based access control" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.vendor="Arash Team"
 
