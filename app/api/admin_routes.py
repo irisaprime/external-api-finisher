@@ -708,20 +708,20 @@ async def admin_dashboard(
             },
         },
         400: {
-            "description": "Bad request - Invalid input or platform name already exists",
+            "description": "Bad request - Invalid input or channel_id already exists",
             "content": {
                 "application/json": {
                     "examples": {
-                        "platform_exists": {
-                            "summary": "Platform name already exists",
+                        "channel_exists": {
+                            "summary": "Channel ID already exists",
                             "value": {
-                                "detail": "Channel with platform name 'Internal-BI' already exists"
+                                "detail": "Channel with ID 'Internal-BI' already exists"
                             }
                         },
-                        "invalid_platform_name": {
-                            "summary": "Invalid platform name format",
+                        "invalid_channel_id": {
+                            "summary": "Invalid channel_id format",
                             "value": {
-                                "detail": "Platform name must be ASCII characters without spaces"
+                                "detail": "channel_id must be ASCII characters without spaces"
                             }
                         },
                         "invalid_quota": {
@@ -772,7 +772,7 @@ async def admin_dashboard(
                     "example": {
                         "detail": [
                             {
-                                "loc": ["body", "platform_name"],
+                                "loc": ["body", "channel_id"],
                                 "msg": "field required",
                                 "type": "value_error.missing"
                             }
@@ -1192,10 +1192,10 @@ async def get_channels(
             "content": {
                 "application/json": {
                     "examples": {
-                        "platform_exists": {
-                            "summary": "Platform name already exists (when changing platform_name)",
+                        "channel_exists": {
+                            "summary": "Channel ID already exists (when changing channel_id)",
                             "value": {
-                                "detail": "Platform name 'Internal-BI-v2' is already in use by another channel"
+                                "detail": "Channel ID 'Internal-BI-v2' is already in use by another channel"
                             }
                         },
                         "invalid_quota": {
