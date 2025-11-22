@@ -12,7 +12,7 @@ from unittest.mock import Mock, MagicMock, patch
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.api.dependencies import require_admin_access, require_team_access, require_chat_access
+from app.api.dependencies import require_admin_access, require_channel_access, require_chat_access
 
 
 class TestRequireAdminAccess:
@@ -66,19 +66,19 @@ class TestRequireAdminAccess:
 
 
 class TestRequireTeamAccess:
-    """Tests for require_team_access dependency"""
+    """Tests for require_channel_access dependency"""
 
-    def test_team_access_no_authorization(self):
+    def test_channel_access_no_authorization(self):
         """Test channel access with no authorization header (line 143-144 coverage)"""
         with pytest.raises(HTTPException) as exc_info:
-            require_team_access(authorization=None)
+            require_channel_access(authorization=None)
 
         assert exc_info.value.status_code == 401
         assert "Authentication required" in exc_info.value.detail
 
     @patch("app.api.dependencies.get_db_session")
     @patch("app.api.dependencies.APIKeyManager")
-    def test_team_access_invalid_key(self, mock_api_key_mgr, mock_get_db):
+    def test_channel_access_invalid_key(self, mock_api_key_mgr, mock_get_db):
         """Test channel access with invalid API key (lines 148-151 coverage)"""
         mock_db = Mock()
         mock_get_db.return_value = mock_db
@@ -89,14 +89,14 @@ class TestRequireTeamAccess:
         auth = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid_channel_key")
 
         with pytest.raises(HTTPException) as exc_info:
-            require_team_access(authorization=auth)
+            require_channel_access(authorization=auth)
 
         assert exc_info.value.status_code == 403
         assert "Invalid API key" in exc_info.value.detail
 
     @patch("app.api.dependencies.get_db_session")
     @patch("app.api.dependencies.APIKeyManager")
-    def test_team_access_valid_key(self, mock_api_key_mgr, mock_get_db):
+    def test_channel_access_valid_key(self, mock_api_key_mgr, mock_get_db):
         """Test channel access with valid API key (lines 148-156 coverage)"""
         mock_db = Mock()
         mock_get_db.return_value = mock_db
@@ -111,14 +111,14 @@ class TestRequireTeamAccess:
 
         auth = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid_channel_key")
 
-        result = require_team_access(authorization=auth)
+        result = require_channel_access(authorization=auth)
 
         assert result == mock_api_key
         mock_api_key_mgr.validate_api_key.assert_called_once_with(mock_db, "valid_channel_key")
 
     @patch("app.api.dependencies.get_db_session")
     @patch("app.api.dependencies.APIKeyManager")
-    def test_team_access_database_error(self, mock_api_key_mgr, mock_get_db):
+    def test_channel_access_database_error(self, mock_api_key_mgr, mock_get_db):
         """Test channel access with database error (lines 160-162 coverage)"""
         mock_db = Mock()
         mock_get_db.return_value = mock_db
@@ -129,7 +129,7 @@ class TestRequireTeamAccess:
         auth = HTTPAuthorizationCredentials(scheme="Bearer", credentials="test_key")
 
         with pytest.raises(HTTPException) as exc_info:
-            require_team_access(authorization=auth)
+            require_channel_access(authorization=auth)
 
         assert exc_info.value.status_code == 500
         assert "Error validating API key" in exc_info.value.detail
@@ -161,7 +161,7 @@ class TestRequireChatAccess:
     @patch("app.api.dependencies.settings")
     @patch("app.api.dependencies.get_db_session")
     @patch("app.api.dependencies.APIKeyManager")
-    def test_chat_access_valid_team_key(self, mock_api_key_mgr, mock_get_db, mock_settings):
+    def test_chat_access_valid_channel_key(self, mock_api_key_mgr, mock_get_db, mock_settings):
         """Test chat access with valid channel API key"""
         mock_settings.TELEGRAM_SERVICE_KEY = "different_telegram_key"
 

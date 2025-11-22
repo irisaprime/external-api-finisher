@@ -254,7 +254,7 @@ class StatsResponse(BaseModel):
                     "total_sessions": 150,
                     "active_sessions": 25,
                     "telegram": {"sessions": 10, "model": "Gemini 2.0 Flash"},
-                    "internal": {"sessions": 15, "teams": 5},
+                    "internal": {"sessions": 15, "channels": 5},
                     "uptime_seconds": 86400.0,
                 }
             ]

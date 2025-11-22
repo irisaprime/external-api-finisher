@@ -2,7 +2,7 @@
 Admin API routes for channel and API key management
 
 TWO-PATH AUTHENTICATION:
-These endpoints are ONLY accessible to SUPER ADMINS (internal team).
+These endpoints are ONLY accessible to SUPER ADMINS (administrators).
 Authentication via SUPER_ADMIN_API_KEYS environment variable (NOT database).
 
 ADMIN ENDPOINTS (SUPER ADMINS ONLY):
@@ -52,7 +52,7 @@ class ChannelCreate(BaseModel):
     - title: Human-friendly name (supports Persian/Farsi) for admin UI and chat
     - channel_id: System identifier for routing (ASCII, no spaces)
     - access_type: 'public' (Telegram, Discord) or 'private' (customer integrations)
-    - Platform config overrides: If NULL, uses defaults for platform_type
+    - Platform config overrides: If NULL, uses defaults for access_type
     - Auto-generates API key on creation
     """
 
@@ -108,30 +108,30 @@ class ChannelCreate(BaseModel):
         None, description="Daily request quota (None = unlimited)", examples=[5000, None]
     )
 
-    # Platform configuration overrides (NULL = use defaults for platform_type)
+    # Platform configuration overrides (NULL = use defaults for access_type)
     rate_limit: Optional[int] = Field(
         None,
-        description="Override default rate limit (requests/min). NULL = use platform_type default",
+        description="Override default rate limit (requests/min). NULL = use access_type default",
         examples=[20, 60, None],
     )
     max_history: Optional[int] = Field(
         None,
-        description="Override default max conversation history. NULL = use platform_type default",
+        description="Override default max conversation history. NULL = use access_type default",
         examples=[10, 30, None],
     )
     default_model: Optional[str] = Field(
         None,
-        description="Override default AI model. NULL = use platform_type default",
+        description="Override default AI model. NULL = use access_type default",
         examples=["openai/gpt-5-chat", "google/gemini-2.0-flash-001", None],
     )
     available_models: Optional[List[str]] = Field(
         None,
-        description="Override available models list. NULL = use platform_type default",
+        description="Override available models list. NULL = use access_type default",
         examples=[["openai/gpt-5-chat", "google/gemini-2.0-flash-001"], None],
     )
     allow_model_switch: Optional[bool] = Field(
         None,
-        description="Override model switching permission. NULL = use platform_type default",
+        description="Override model switching permission. NULL = use access_type default",
         examples=[True, False, None],
     )
 
@@ -248,7 +248,7 @@ class ChannelResponse(BaseModel):
     daily_quota: Optional[int] = Field(None, examples=[5000])
     is_active: bool = Field(..., examples=[True])
 
-    # Platform configuration (NULL = using defaults for platform_type)
+    # Platform configuration (NULL = using defaults for access_type)
     rate_limit: Optional[int] = Field(None, examples=[60, 80, None])
     max_history: Optional[int] = Field(None, examples=[30, 25, None])
     default_model: Optional[str] = Field(None, examples=["openai/gpt-5-chat", None])
@@ -323,7 +323,7 @@ class ChannelCreateResponse(BaseModel):
 
 
 class UsageStatsResponse(BaseModel):
-    """Response model for usage statistics (team-based only, no api_key_id)
+    """Response model for usage statistics (channel-based only, no api_key_id)
 
     Note: team_name contains the channel's title (supports Persian/Farsi)
     """
@@ -552,7 +552,7 @@ async def admin_dashboard(
     Returns comprehensive information including:
     - Service health and version
     - Platform configurations (Telegram + Internal)
-    - Session statistics (overall + per team)
+    - Session statistics (overall + per channel)
 
     SECURITY: Exposes Telegram platform details - Admin access required
     """
@@ -1026,7 +1026,7 @@ class ChannelsListResponse(BaseModel):
                         "database_error": {
                             "summary": "Database connection error",
                             "value": {
-                                "detail": "Failed to retrieve teams from database"
+                                "detail": "Failed to retrieve channels from database"
                             }
                         },
                         "usage_stats_error": {
@@ -1055,23 +1055,23 @@ async def get_channels(
     api_key=Depends(require_admin_access),
 ):
     """
-    Get teams with usage statistics (Admin only)
+    Get channels with usage statistics (Admin only)
 
     Parameters:
     - channel_id: Optional channel ID to get specific channel (returns single item list)
-    - active_only: Filter active teams only (default: True)
+    - active_only: Filter active channels only (default: True)
     - days: Number of days for usage statistics (default: 30)
-    - totally: Include total aggregated report across all teams (default: False)
+    - totally: Include total aggregated report across all channels (default: False)
 
     Returns:
-    - List of teams with usage data
+    - List of channels with usage data
     - Optional total report when totally=true
 
     Examples:
-    - GET /admin/teams - List all active channels with usage
-    - GET /admin/teams?channel_id=1 - Get specific channel with usage
-    - GET /admin/teams?totally=true - List all channels with total report
-    - GET /admin/teams?active_only=false&days=7 - All channels with 7-day usage
+    - GET /admin/channels - List all active channels with usage
+    - GET /admin/channels?channel_id=1 - Get specific channel with usage
+    - GET /admin/channels?totally=true - List all channels with total report
+    - GET /admin/channels?active_only=false&days=7 - All channels with 7-day usage
     """
     db = get_db_session()
 

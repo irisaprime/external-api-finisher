@@ -52,7 +52,7 @@ def require_admin_access(
     AUTHENTICATION:
     - Checks Authorization header against SUPER_ADMIN_API_KEYS environment variable
     - NO database lookup
-    - Completely separate from team API keys
+    - Completely separate from channel API keys
 
     USAGE:
     - Used by: All admin endpoints (/v1/admin/*)
@@ -72,7 +72,7 @@ def require_admin_access(
 
     SECURITY:
     - Super admin keys set via SUPER_ADMIN_API_KEYS environment variable
-    - External teams have no way to obtain these keys
+    - External channels have no way to obtain these keys
     - Complete separation from client database
     """
     if not authorization:

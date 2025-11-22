@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     ENABLE_API_DOCS: bool = True  # DevOps sets: true for dev/stage, false for prod
 
     # Super Admin Authentication (Infrastructure Level)
-    # These API keys are for internal team only - NOT stored in database
+    # These API keys are for administrators only - NOT stored in database
     # Comma-separated list of API keys for super admin access
     # Example: "key1,key2,key3"
     SUPER_ADMIN_API_KEYS: str = ""  # Set in production via environment/secrets
@@ -187,7 +187,7 @@ class Settings(BaseSettings):
         Get super admin API keys as set for fast validation
 
         These are infrastructure-level admin keys (NOT in database).
-        Used to authenticate internal team for /api/v1/admin/* endpoints.
+        Used to authenticate administrators for /api/v1/admin/* endpoints.
         """
         if not self.SUPER_ADMIN_API_KEYS:
             return set()

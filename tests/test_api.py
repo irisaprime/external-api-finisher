@@ -370,7 +370,6 @@ class TestQuotaEnforcement:
     @patch("app.api.dependencies.get_db_session")
     def test_quota_exceeded_returns_429(self, mock_get_db, mock_key_mgr, client, mock_api_key_user):
         """Test that quota exceeded returns 429"""
-        # TODO: Implement when quota checking is in dependencies
         pass
 
 

@@ -104,8 +104,8 @@ class TestAuthentication:
 
     @patch("app.api.dependencies.get_db_session")
     @patch("app.api.dependencies.APIKeyManager.validate_api_key")
-    def test_chat_endpoint_with_valid_team_key(self, mock_validate, mock_db, mock_api_key, client):
-        """Chat endpoint with valid team API key"""
+    def test_chat_endpoint_with_valid_channel_key(self, mock_validate, mock_db, mock_api_key, client):
+        """Chat endpoint with valid channel API key"""
         mock_validate.return_value = mock_api_key
 
         response = client.post(
@@ -133,7 +133,7 @@ class TestAuthentication:
 
     def test_admin_endpoint_no_auth(self, client):
         """Admin endpoints require authentication"""
-        response = client.get("/v1/admin/teams")
+        response = client.get("/v1/admin/channels")
         assert response.status_code == 401
 
     @patch("app.api.dependencies.settings")
@@ -141,7 +141,7 @@ class TestAuthentication:
         """Admin endpoint with valid super admin key"""
         mock_settings.super_admin_keys_set = {"test_admin_key"}
 
-        response = client.get("/v1/admin/teams", headers={"Authorization": "Bearer test_admin_key"})
+        response = client.get("/v1/admin/channels", headers={"Authorization": "Bearer test_admin_key"})
         # Should work or return data
         assert response.status_code in [200, 500]
 
@@ -255,8 +255,8 @@ class TestCommandsEndpoint:
 
     @patch("app.api.dependencies.get_db_session")
     @patch("app.api.dependencies.APIKeyManager.validate_api_key")
-    def test_commands_team_mode(self, mock_validate, mock_db, mock_api_key, client):
-        """Commands endpoint returns team-specific commands with team API key"""
+    def test_commands_channel_mode(self, mock_validate, mock_db, mock_api_key, client):
+        """Commands endpoint returns channel-specific commands with channel API key"""
         mock_validate.return_value = mock_api_key
 
         response = client.get("/v1/commands", headers={"Authorization": "Bearer test_key"})
@@ -283,7 +283,7 @@ class TestAdminChannelEndpoints:
         mock_settings.super_admin_keys_set = {"admin_key"}
         mock_list.return_value = [mock_channel]
 
-        response = client.get("/v1/admin/teams", headers={"Authorization": "Bearer admin_key"})
+        response = client.get("/v1/admin/channels", headers={"Authorization": "Bearer admin_key"})
         assert response.status_code == 200
         data = response.json()
         # New response structure includes "channels" list and optional "total_report"
@@ -301,7 +301,7 @@ class TestAdminChannelEndpoints:
         mock_create.return_value = (mock_channel, "ark_generated_key_12345")
 
         response = client.post(
-            "/v1/admin/teams",
+            "/v1/admin/channels",
             headers={"Authorization": "Bearer admin_key"},
             json={"channel_id": "Test-Channel", "monthly_quota": 50000, "daily_quota": 2000},
         )
@@ -318,7 +318,7 @@ class TestAdminChannelEndpoints:
         mock_get.return_value = mock_channel
 
         # New endpoint uses query parameter instead of path parameter
-        response = client.get("/v1/admin/teams?channel_id=1", headers={"Authorization": "Bearer admin_key"})
+        response = client.get("/v1/admin/channels?channel_id=1", headers={"Authorization": "Bearer admin_key"})
         assert response.status_code == 200
         data = response.json()
         # Response now includes "channels" list with single item
@@ -335,7 +335,7 @@ class TestAdminChannelEndpoints:
         mock_get.return_value = None  # Channel not found
 
         # New endpoint uses query parameter instead of path parameter
-        response = client.get("/v1/admin/teams?channel_id=999", headers={"Authorization": "Bearer admin_key"})
+        response = client.get("/v1/admin/channels?channel_id=999", headers={"Authorization": "Bearer admin_key"})
         assert response.status_code == 404
 
 
