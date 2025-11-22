@@ -1,7 +1,7 @@
 """
 Database models for API key management and usage tracking.
 Note: Chat history is NOT stored here - it's handled by the AI service.
-This database only stores API keys, teams, and usage statistics.
+This database only stores API keys, channels, and usage statistics.
 """
 
 import logging
@@ -84,10 +84,6 @@ class Channel(Base):
 
     def __repr__(self):
         return f"<Channel(id={self.id}, channel_id='{self.channel_id}')>"
-
-
-# Backward compatibility alias
-Team = Channel
 
 
 class APIKey(Base):

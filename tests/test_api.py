@@ -3,7 +3,7 @@ API Endpoint Tests - v1
 
 Tests for API v1 endpoints including:
 - Authentication and authorization
-- Team isolation
+- Channel isolation
 - Message processing
 - Session management
 """
@@ -34,20 +34,20 @@ def mock_db_session():
 
 
 @pytest.fixture
-def mock_api_key_team():
+def mock_api_key_channel():
     """
-    Mock team API key (external client)
+    Mock channel API key (external client)
 
     TWO-PATH AUTHENTICATION:
-    - This is for external teams using /api/v1/chat endpoint
+    - This is for external channels using /api/v1/chat endpoint
     - All database API keys have equal access (no access_level field)
     """
     key = Mock()
     key.id = 1
-    key.team_id = 100
+    key.channel_id = 100
     key.key_prefix = "sk_test_"
     key.is_active = True
-    key.team = Mock(name="External Team")
+    key.channel = Mock(name="External Channel")
     return key
 
 
@@ -67,16 +67,14 @@ def mock_super_admin_key():
 @pytest.fixture
 def mock_api_key_user():
     """
-    Mock user API key (regular team user)
-
-    This is an alias for mock_api_key_team for backward compatibility
+    Mock user API key (regular channel user)
     """
     key = Mock()
     key.id = 1
-    key.team_id = 100
+    key.channel_id = 100
     key.key_prefix = "sk_user_"
     key.is_active = True
-    key.team = Mock(name="User Team", platform_name="internal")
+    key.channel = Mock(name="User Channel", channel_id="internal")
     return key
 
 
@@ -87,10 +85,10 @@ def mock_api_key_internal():
     """
     key = Mock()
     key.id = 2
-    key.team_id = 101
+    key.channel_id = 101
     key.key_prefix = "sk_internal_"
     key.is_active = True
-    key.team = Mock(name="Internal Team", platform_name="internal")
+    key.channel = Mock(name="Internal Channel", channel_id="internal")
     return key
 
 
@@ -101,10 +99,10 @@ def mock_api_key_external():
     """
     key = Mock()
     key.id = 3
-    key.team_id = 102
+    key.channel_id = 102
     key.key_prefix = "sk_external_"
     key.is_active = True
-    key.team = Mock(name="External Team", platform_name="telegram")
+    key.channel = Mock(name="External Channel", channel_id="telegram")
     return key
 
 
@@ -118,10 +116,10 @@ def mock_api_key_admin():
     """
     key = Mock()
     key.id = 4
-    key.team_id = 103
+    key.channel_id = 103
     key.key_prefix = "sk_admin_"
     key.is_active = True
-    key.team = Mock(name="Admin Team", platform_name="internal")
+    key.channel = Mock(name="Admin Channel", channel_id="internal")
     return key
 
 
@@ -266,7 +264,7 @@ class TestMessageEndpointV1:
             json={"user_id": "user1", "text": "Hello"},
         )
 
-        # Should succeed - platform is determined from API key's team.platform_name
+        # Should succeed - platform is determined from API key's channel.channel_id
         assert response.status_code == 200
 
         # Verify process_message_simple was called with platform from API key
@@ -324,43 +322,43 @@ class TestAPIVersioning:
 
 
 class TestSessionKeyIsolation:
-    """Test session key generation includes team_id"""
+    """Test session key generation includes channel_id"""
 
     @patch("app.services.session_manager.session_manager")
-    def test_session_key_includes_team_id(self, mock_sess_mgr):
-        """Test that session keys include team_id for isolation"""
+    def test_session_key_includes_channel_id(self, mock_sess_mgr):
+        """Test that session keys include channel_id for isolation"""
         from app.services.session_manager import SessionManager
 
         manager = SessionManager()
 
-        # Test with team_id (internal platform)
-        key_with_team = manager.get_session_key("internal", "chat123", team_id=100)
-        assert "100" in key_with_team
-        assert "chat123" in key_with_team
+        # Test with channel_id (internal platform)
+        key_with_channel = manager.get_session_key("internal", "chat123", channel_id=100)
+        assert "100" in key_with_channel
+        assert "chat123" in key_with_channel
 
-        # Test without team_id (telegram bot)
-        key_without_team = manager.get_session_key("telegram", "chat123", team_id=None)
-        assert "chat123" in key_without_team
-        # Should NOT include team_id
-        assert key_with_team != key_without_team
+        # Test without channel_id (telegram bot)
+        key_without_channel = manager.get_session_key("telegram", "chat123", channel_id=None)
+        assert "chat123" in key_without_channel
+        # Should NOT include channel_id
+        assert key_with_channel != key_without_channel
 
     @patch("app.services.session_manager.session_manager")
-    def test_different_teams_same_conversation_id_different_sessions(self, mock_sess_mgr):
-        """Test that two teams with same conversation_id get different sessions"""
+    def test_different_channels_same_conversation_id_different_sessions(self, mock_sess_mgr):
+        """Test that two channels with same conversation_id get different sessions"""
         from app.services.session_manager import SessionManager
 
         manager = SessionManager()
 
-        # Team 100 with conversation_id "user123"
-        key_team_100 = manager.get_session_key("internal", "user123", team_id=100)
+        # Channel 100 with conversation_id "user123"
+        key_channel_100 = manager.get_session_key("internal", "user123", channel_id=100)
 
-        # Team 200 with conversation_id "user123" (same conversation_id, different team)
-        key_team_200 = manager.get_session_key("internal", "user123", team_id=200)
+        # Channel 200 with conversation_id "user123" (same conversation_id, different channel)
+        key_channel_200 = manager.get_session_key("internal", "user123", channel_id=200)
 
         # Keys must be different to prevent session collision
-        assert key_team_100 != key_team_200
-        assert "100" in key_team_100
-        assert "200" in key_team_200
+        assert key_channel_100 != key_channel_200
+        assert "100" in key_channel_100
+        assert "200" in key_channel_200
 
 
 class TestQuotaEnforcement:
@@ -370,7 +368,6 @@ class TestQuotaEnforcement:
     @patch("app.api.dependencies.get_db_session")
     def test_quota_exceeded_returns_429(self, mock_get_db, mock_key_mgr, client, mock_api_key_user):
         """Test that quota exceeded returns 429"""
-        # TODO: Implement when quota checking is in dependencies
         pass
 
 
@@ -381,12 +378,12 @@ class TestFixtureUsage:
         """Test mock_db_session fixture (line 33)"""
         assert mock_db_session is not None
 
-    def test_mock_api_key_team_fixture(self, mock_api_key_team):
-        """Test mock_api_key_team fixture (lines 45-51)"""
-        assert mock_api_key_team.id == 1
-        assert mock_api_key_team.team_id == 100
-        assert mock_api_key_team.key_prefix == "sk_test_"
-        assert mock_api_key_team.is_active is True
+    def test_mock_api_key_channel_fixture(self, mock_api_key_channel):
+        """Test mock_api_key_channel fixture (lines 45-51)"""
+        assert mock_api_key_channel.id == 1
+        assert mock_api_key_channel.channel_id == 100
+        assert mock_api_key_channel.key_prefix == "sk_test_"
+        assert mock_api_key_channel.is_active is True
 
     def test_mock_super_admin_key_fixture(self, mock_super_admin_key):
         """Test mock_super_admin_key fixture (line 64)"""
@@ -395,19 +392,19 @@ class TestFixtureUsage:
     def test_mock_api_key_internal_fixture(self, mock_api_key_internal):
         """Test mock_api_key_internal fixture (lines 88-94)"""
         assert mock_api_key_internal.id == 2
-        assert mock_api_key_internal.team_id == 101
-        assert mock_api_key_internal.team.platform_name == "internal"
+        assert mock_api_key_internal.channel_id == 101
+        assert mock_api_key_internal.channel.channel_id == "internal"
 
     def test_mock_api_key_external_fixture(self, mock_api_key_external):
         """Test mock_api_key_external fixture (lines 102-108)"""
         assert mock_api_key_external.id == 3
-        assert mock_api_key_external.team_id == 102
-        assert mock_api_key_external.team.platform_name == "telegram"
+        assert mock_api_key_external.channel_id == 102
+        assert mock_api_key_external.channel.channel_id == "telegram"
 
     def test_mock_api_key_admin_fixture(self, mock_api_key_admin):
         """Test mock_api_key_admin fixture (lines 119-125)"""
         assert mock_api_key_admin.id == 4
-        assert mock_api_key_admin.team_id == 103
+        assert mock_api_key_admin.channel_id == 103
         assert mock_api_key_admin.key_prefix == "sk_admin_"
 
 

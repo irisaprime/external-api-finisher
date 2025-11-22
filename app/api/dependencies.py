@@ -7,7 +7,7 @@ TWO-PATH AUTHENTICATION SYSTEM:
    - Authentication: Environment variable SUPER_ADMIN_API_KEYS
    - NOT stored in database
    - Can access: ALL /v1/admin/* endpoints
-   - Purpose: Internal team managing the service infrastructure
+   - Purpose: Infrastructure administrators managing the service
    - Completely separate from client database
 
 2. CHANNEL API KEYS (Application Level):
@@ -52,7 +52,7 @@ def require_admin_access(
     AUTHENTICATION:
     - Checks Authorization header against SUPER_ADMIN_API_KEYS environment variable
     - NO database lookup
-    - Completely separate from team API keys
+    - Completely separate from channel API keys
 
     USAGE:
     - Used by: All admin endpoints (/v1/admin/*)
@@ -72,7 +72,7 @@ def require_admin_access(
 
     SECURITY:
     - Super admin keys set via SUPER_ADMIN_API_KEYS environment variable
-    - External teams have no way to obtain these keys
+    - External channels have no way to obtain these keys
     - Complete separation from client database
     """
     if not authorization:
@@ -94,11 +94,11 @@ def require_admin_access(
     return provided_key
 
 
-def require_team_access(
+def require_channel_access(
     authorization: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> APIKey:
     """
-    Require valid TEAM API key - application level (database-based authentication)
+    Require valid CHANNEL API key - application level (database-based authentication)
 
     This dependency protects the /v1/chat endpoint.
     Authentication via database-backed API keys (api_keys table).
@@ -174,7 +174,7 @@ def require_chat_access(
        - Returns "telegram" string marker
        - Used ONLY for the integrated Telegram bot service
 
-    2. TEAM MODE (External channels):
+    2. CHANNEL MODE (External channels):
        - API key validated against database
        - Returns APIKey object
        - Used for authenticated external channels
@@ -212,7 +212,7 @@ def require_chat_access(
         logger.info("[TELEGRAM] Bot service access granted")
         return "telegram"
 
-    # Check if it's a valid team API key
+    # Check if it's a valid channel API key
     db = get_db_session()
     try:
         api_key = APIKeyManager.validate_api_key(db, provided_key)
@@ -224,7 +224,7 @@ def require_chat_access(
             )
 
         logger.info(
-            f"[TEAM] API access granted to: {api_key.key_prefix} (Channel: {api_key.channel.channel_id})"
+            f"[CHANNEL] API access granted to: {api_key.key_prefix} (Channel: {api_key.channel.channel_id})"
         )
         return api_key
 

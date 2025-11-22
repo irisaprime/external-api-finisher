@@ -10,11 +10,11 @@ from pydantic import BaseModel, Field
 
 class ChatSession(BaseModel):
     """
-    Chat session model with team isolation.
+    Chat session model with channel isolation.
 
     Architecture:
-    - One conversation per user per platform/team (no conversation_id)
-    - session_id format: "platform:team_id:user_id" or "platform:user_id"
+    - One conversation per user per platform/channel (no conversation_id)
+    - session_id format: "platform:channel_id:user_id" or "platform:user_id"
     - total_message_count tracks ALL messages ever (persists through /clear)
     - history is in-memory cache (resets after /clear, server restart)
     - Actual messages stored in database
@@ -34,8 +34,8 @@ class ChatSession(BaseModel):
     total_message_count: int = 0  # Total messages ever (loaded from DB). Excludes commands - only actual chat messages
     is_admin: bool = False
 
-    # Team isolation fields - CRITICAL for security
-    team_id: int | None = None  # Team that owns this session
+    # Channel isolation fields - CRITICAL for security
+    channel_id: int | None = None  # Channel that owns this session
     api_key_id: int | None = None  # API key used to create this session
     api_key_prefix: str | None = None  # For logging/debugging (first 8 chars)
 

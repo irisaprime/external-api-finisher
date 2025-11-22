@@ -27,55 +27,55 @@ class SessionManager:
         self.sessions: Dict[str, ChatSession] = {}
         self.rate_limits: Dict[str, List[float]] = defaultdict(list)
 
-    def get_session_key(self, platform: str, user_id: str, team_id: int | None = None) -> str:
+    def get_session_key(self, platform: str, user_id: str, channel_id: int | None = None) -> str:
         """
-        Generate unique session key with team isolation.
+        Generate unique session key with channel isolation.
 
-        SECURITY: Includes team_id to prevent session collision between teams.
-        If Team A and Team B both use user_id="user123", they get DIFFERENT sessions.
+        SECURITY: Includes channel_id to prevent session collision between channels.
+        If Channel A and Channel B both use user_id="user123", they get DIFFERENT sessions.
 
         Format:
-        - Telegram (no team): "telegram:user123"
-        - Team-based: "Internal-BI:5:user123"
+        - Telegram (no channel): "telegram:user123"
+        - Channel-based: "Internal-BI:5:user123"
         """
-        if team_id is not None:
-            return f"{platform}:{team_id}:{user_id}"
+        if channel_id is not None:
+            return f"{platform}:{channel_id}:{user_id}"
         return f"{platform}:{user_id}"
 
     def get_or_create_session(
         self,
         platform: str,
         user_id: str,
-        team_id: int | None = None,
+        channel_id: int | None = None,
         api_key_id: int | None = None,
         api_key_prefix: str | None = None,
     ) -> ChatSession:
         """
-        Get existing session or create new one with platform-specific config and team isolation.
+        Get existing session or create new one with platform-specific config and channel isolation.
 
         Architecture:
-        - One session per user per platform/team (no conversation_id)
+        - One session per user per platform/channel (no conversation_id)
         - Loads total_message_count from database
         - Loads uncleared messages into history for AI context
 
         SECURITY: API key isolation - each API key can only access sessions it created
         """
-        # SECURITY: Include team_id in key to prevent session collision between teams
-        key = self.get_session_key(platform, user_id, team_id)
+        # SECURITY: Include channel_id in key to prevent session collision between channels
+        key = self.get_session_key(platform, user_id, channel_id)
 
         if key not in self.sessions:
             # Load channel if available (for config overrides)
             channel = None
-            if team_id:  # param name kept for backward compat
+            if channel_id:
                 db = get_db_session()
                 try:
                     from app.models.database import Channel
-                    channel = db.query(Channel).filter(Channel.id == team_id).first()
+                    channel = db.query(Channel).filter(Channel.id == channel_id).first()
                 except Exception as e:
-                    logger.error(f"Error loading channel {team_id}: {e}")
+                    logger.error(f"Error loading channel {channel_id}: {e}")
 
             # Get config with channel-specific overrides
-            config = platform_manager.get_config(platform, team=channel)  # param name kept for backward compat
+            config = platform_manager.get_config(platform, channel=channel)
 
             # Load message history from database
             db = get_db_session()
@@ -86,7 +86,7 @@ class SessionManager:
                     .filter(
                         Message.platform == platform,
                         Message.user_id == user_id,
-                        Message.team_id == team_id if team_id else Message.team_id.is_(None),
+                        Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                     )
                     .scalar()
                     or 0
@@ -98,7 +98,7 @@ class SessionManager:
                     .filter(
                         Message.platform == platform,
                         Message.user_id == user_id,
-                        Message.team_id == team_id if team_id else Message.team_id.is_(None),
+                        Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                         Message.cleared_at.is_(None),  # Only uncleared messages
                     )
                     .order_by(Message.created_at)
@@ -122,17 +122,17 @@ class SessionManager:
                 history=history,  # Pre-loaded from DB
                 total_message_count=total_count,  # Total messages including cleared
                 is_admin=platform_manager.is_admin(platform, user_id),
-                # Team isolation - CRITICAL for security
-                team_id=team_id,
+                # Channel isolation - CRITICAL for security
+                channel_id=channel_id,
                 api_key_id=api_key_id,
                 api_key_prefix=api_key_prefix,
             )
 
             friendly_platform = get_friendly_platform_name(platform)
             masked_id = mask_session_id(self.sessions[key].session_id)
-            team_info = f" (team: {team_id}, key: {api_key_prefix})" if team_id else ""
+            channel_info = f" (channel: {channel_id}, key: {api_key_prefix})" if channel_id else ""
             logger.info(
-                f"Created session for {friendly_platform} user={user_id} (session: {masked_id}){team_info} "
+                f"Created session for {friendly_platform} user={user_id} (session: {masked_id}){channel_info} "
                 f"with {total_count} total messages ({len(history)} in context)"
             )
         else:
@@ -154,9 +154,9 @@ class SessionManager:
 
         return self.sessions[key]
 
-    def get_session(self, platform: str, user_id: str, team_id: int | None = None) -> ChatSession:
-        """Get existing session by platform, user_id, and team_id"""
-        key = self.get_session_key(platform, user_id, team_id)
+    def get_session(self, platform: str, user_id: str, channel_id: int | None = None) -> ChatSession:
+        """Get existing session by platform, user_id, and channel_id"""
+        key = self.get_session_key(platform, user_id, channel_id)
         return self.sessions.get(key)
 
     def get_session_by_id(self, session_id: str) -> ChatSession | None:
@@ -166,9 +166,9 @@ class SessionManager:
                 return session
         return None
 
-    def delete_session(self, platform: str, user_id: str, team_id: int | None = None) -> bool:
+    def delete_session(self, platform: str, user_id: str, channel_id: int | None = None) -> bool:
         """Delete a session (in-memory only - DB messages remain)"""
-        key = self.get_session_key(platform, user_id, team_id)
+        key = self.get_session_key(platform, user_id, channel_id)
         if key in self.sessions:
             del self.sessions[key]
             logger.info(f"Deleted session: {key}")
@@ -254,13 +254,13 @@ class SessionManager:
         threshold = datetime.utcnow() - timedelta(minutes=minutes)
         return len([s for s in self.sessions.values() if s.last_activity > threshold])
 
-    def get_sessions_by_team(self, team_id: int) -> List[ChatSession]:
-        """Get all sessions for a specific team (for team isolation)"""
-        return [session for session in self.sessions.values() if session.team_id == team_id]
+    def get_sessions_by_channel(self, channel_id: int) -> List[ChatSession]:
+        """Get all sessions for a specific channel (for channel isolation)"""
+        return [session for session in self.sessions.values() if session.channel_id == channel_id]
 
-    def get_session_count_by_team(self, team_id: int) -> int:
-        """Get count of sessions for a specific team"""
-        return len(self.get_sessions_by_team(team_id))
+    def get_session_count_by_channel(self, channel_id: int) -> int:
+        """Get count of sessions for a specific channel"""
+        return len(self.get_sessions_by_channel(channel_id))
 
 
 # Global instance

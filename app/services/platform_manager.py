@@ -115,42 +115,42 @@ class PlatformManager:
         logger.info(f"  - Public: {public_config.model} + {len(public_config.available_models)} models")
         logger.info(f"  - Private: {len(private_config.available_models)} models")
 
-    def get_config(self, platform: str, team: Optional[Any] = None) -> PlatformConfig:
+    def get_config(self, platform: str, channel: Optional[Any] = None) -> PlatformConfig:
         """
         Get configuration for a platform with optional channel-specific overrides.
 
         Args:
             platform: Platform name (e.g., "telegram", "popak", "avand")
-            team: Optional Channel object with configuration overrides (param kept for backward compat)
+            channel: Optional Channel object with configuration overrides
 
         Returns:
             PlatformConfig with defaults and channel-specific overrides applied
         """
         # If channel provided, build custom config with overrides
-        if team:  # Keep param name 'team' for backward compat
+        if channel:
             # Start with default config for access type
-            config = self.default_configs[team.access_type].copy()
+            config = self.default_configs[channel.access_type].copy()
 
             # Apply channel-specific overrides
-            if team.rate_limit is not None:
-                config.rate_limit = team.rate_limit
+            if channel.rate_limit is not None:
+                config.rate_limit = channel.rate_limit
 
-            if team.max_history is not None:
-                config.max_history = team.max_history
+            if channel.max_history is not None:
+                config.max_history = channel.max_history
 
-            if team.default_model is not None:
-                config.model = team.default_model
+            if channel.default_model is not None:
+                config.model = channel.default_model
 
-            if team.available_models is not None:
+            if channel.available_models is not None:
                 # Parse CSV string to list
                 try:
-                    config.available_models = [m.strip() for m in team.available_models.split(",") if m.strip()]
+                    config.available_models = [m.strip() for m in channel.available_models.split(",") if m.strip()]
                 except (AttributeError, TypeError):
                     # If not valid string, keep default
                     pass
 
-            if team.allow_model_switch is not None:
-                config.allow_model_switch = team.allow_model_switch
+            if channel.allow_model_switch is not None:
+                config.allow_model_switch = channel.allow_model_switch
 
             return config
 

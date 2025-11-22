@@ -23,20 +23,20 @@ class MessageProcessor:
     """Processes messages with platform-aware logic"""
 
     async def process_message(self, message: IncomingMessage) -> BotResponse:
-        """Process incoming message with team isolation"""
+        """Process incoming message with channel isolation"""
 
         try:
-            # Extract team info from metadata (set by API endpoint)
-            team_id = message.metadata.get("team_id")
+            # Extract channel info from metadata (set by API endpoint)
+            channel_id = message.metadata.get("channel_id")
             api_key_id = message.metadata.get("api_key_id")
             api_key_prefix = message.metadata.get("api_key_prefix")
 
-            # Get or create session with team isolation
+            # Get or create session with channel isolation
             session = session_manager.get_or_create_session(
                 platform=message.platform,
                 user_id=message.user_id,
                 conversation_id=message.conversation_id,
-                team_id=team_id,
+                channel_id=channel_id,
                 api_key_id=api_key_id,
                 api_key_prefix=api_key_prefix,
             )
@@ -87,7 +87,7 @@ class MessageProcessor:
     async def process_message_simple(
         self,
         platform_name: str,
-        team_id: Optional[int],
+        channel_id: Optional[int],
         api_key_id: Optional[int],
         api_key_prefix: Optional[str],
         user_id: str,
@@ -98,7 +98,7 @@ class MessageProcessor:
 
         Args:
             platform_name: Platform name (e.g., "telegram", "Internal-BI")
-            team_id: Team ID (None for Telegram, required for authenticated platforms)
+            channel_id: Channel ID (None for Telegram, required for authenticated platforms)
             api_key_id: API key ID (None for Telegram)
             api_key_prefix: API key prefix (None for Telegram)
             user_id: User ID (client-provided)
@@ -116,7 +116,7 @@ class MessageProcessor:
                 session = session_manager.get_or_create_session(
                     platform=platform_name,
                     user_id=user_id,
-                    team_id=team_id,
+                    channel_id=channel_id,
                     api_key_id=api_key_id,
                     api_key_prefix=api_key_prefix,
                 )
@@ -132,13 +132,13 @@ class MessageProcessor:
             if not session_manager.check_rate_limit(platform_name, user_id):
                 rate_limit = session.platform_config.get("rate_limit", 60)
 
-                # Log rate limit failure (only for authenticated teams)
-                if team_id and api_key_id:
+                # Log rate limit failure (only for authenticated channels)
+                if channel_id and api_key_id:
                     response_time_ms = int((time.time() - start_time) * 1000)
                     UsageTracker.log_usage(
                         db=db,
                         api_key_id=api_key_id,
-                        team_id=team_id,
+                        channel_id=channel_id,
                         session_id=session.session_id,
                         platform=platform_name,
                         model_used=session.current_model,
@@ -175,19 +175,19 @@ class MessageProcessor:
                 .filter(
                     Message.platform == platform_name,
                     Message.user_id == user_id,
-                    Message.team_id == team_id if team_id else Message.team_id.is_(None),
+                    Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                 )
                 .scalar()
                 or 0
             )
 
-            # Log successful usage (only for authenticated teams)
-            if team_id and api_key_id:
+            # Log successful usage (only for authenticated channels)
+            if channel_id and api_key_id:
                 response_time_ms = int((time.time() - start_time) * 1000)
                 UsageTracker.log_usage(
                     db=db,
                     api_key_id=api_key_id,
-                    team_id=team_id,
+                    channel_id=channel_id,
                     session_id=session.session_id,
                     platform=platform_name,
                     model_used=session.current_model,
@@ -206,19 +206,19 @@ class MessageProcessor:
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
 
-            # Log error (only for authenticated teams)
-            if team_id and api_key_id:
+            # Log error (only for authenticated channels)
+            if channel_id and api_key_id:
                 response_time_ms = int((time.time() - start_time) * 1000)
                 try:
                     # Get session for model info
-                    session = session_manager.get_session(platform_name, user_id, team_id)
+                    session = session_manager.get_session(platform_name, user_id, channel_id)
                     model_used = session.current_model if session else "unknown"
                     session_id = session.session_id if session else "unknown"
 
                     UsageTracker.log_usage(
                         db=db,
                         api_key_id=api_key_id,
-                        team_id=team_id,
+                        channel_id=channel_id,
                         session_id=session_id,
                         platform=platform_name,
                         model_used=model_used,
@@ -272,7 +272,7 @@ class MessageProcessor:
                 # Persist to database
                 try:
                     user_msg = Message(
-                        team_id=session.team_id,
+                        channel_id=session.channel_id,
                         api_key_id=session.api_key_id,
                         platform=session.platform,
                         user_id=session.user_id,
@@ -280,7 +280,7 @@ class MessageProcessor:
                         content=text,
                     )
                     assistant_msg = Message(
-                        team_id=session.team_id,
+                        channel_id=session.channel_id,
                         api_key_id=session.api_key_id,
                         platform=session.platform,
                         user_id=session.user_id,

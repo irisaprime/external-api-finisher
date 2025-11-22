@@ -1,26 +1,26 @@
 """
-Public API routes for external teams (clients)
+Public API routes for external channels (clients)
 
 TWO-TIER ACCESS CONTROL:
-These endpoints are accessible to ALL valid API keys (both TEAM and ADMIN levels).
-However, they are designed for external teams (clients) using the chatbot service.
+These endpoints are accessible to ALL valid API keys (both CHANNEL and ADMIN levels).
+However, they are designed for external channels (clients) using the chatbot service.
 
 PUBLIC ENDPOINTS (ALL VALID API KEYS):
 - /v1/chat - Process chat messages
 
 SECURITY MODEL:
-- External teams (TEAM level) think they're using a simple chatbot API
-- NO exposure of: sessions, teams, access levels, or other teams
-- Complete transparency: teams don't know about our internal architecture
-- Team isolation enforced via session tagging (transparent to clients)
+- External channels (CHANNEL level) think they're using a simple chatbot API
+- NO exposure of: sessions, channels, access levels, or other channels
+- Complete transparency: channels don't know about our internal architecture
+- Channel isolation enforced via session tagging (transparent to clients)
 
-WHAT EXTERNAL TEAMS SEE:
+WHAT EXTERNAL CHANNELS SEE:
 - Simple chatbot API with message in, response out
 - No complexity, no admin features, no multi-tenancy visibility
 
 WHAT THEY DON'T SEE:
-- Access levels (ADMIN vs TEAM)
-- Other teams or their usage
+- Access levels (ADMIN vs CHANNEL)
+- Other channels or their usage
 - Session management internals
 - Platform configuration
 - Admin endpoints
@@ -262,7 +262,7 @@ async def chat(
     - Platform="telegram", no channel_id
     - Session keys: telegram:conversation_id
 
-    ### 2. TEAM MODE (External authenticated channels):
+    ### 2. CHANNEL MODE (External authenticated channels):
     - External channels use their channel API keys
     - Platform auto-detected from channel.channel_id
     - Session keys: channel_id:channel_id:conversation_id (channel isolation enforced)
@@ -285,7 +285,7 @@ async def chat(
     }
     ```
 
-    ### EXTERNAL TEAM REQUEST:
+    ### EXTERNAL CHANNEL REQUEST:
     ```http
     Authorization: Bearer ark_1234567890abcdef
     ```
@@ -299,7 +299,7 @@ async def chat(
 
     ## Security
     - Telegram traffic: Authenticated and logged as [TELEGRAM]
-    - Team traffic: Authenticated and logged as [TEAM]
+    - Channel traffic: Authenticated and logged as [CHANNEL]
     - Unauthorized traffic: Blocked with 401/403
     - Super admins can now track ALL API usage
     """
@@ -307,26 +307,26 @@ async def chat(
     if auth == "telegram":
         # TELEGRAM MODE: Telegram bot service
         platform_name = "telegram"
-        team_id = None
+        channel_id = None
         api_key_id = None
         api_key_prefix = None
 
         logger.info(f"[TELEGRAM] bot_request user_id={message.user_id}")
     else:
-        # TEAM MODE: Authenticated external channel
+        # CHANNEL MODE: Authenticated external channel
         platform_name = auth.channel.channel_id
-        team_id = auth.channel_id
+        channel_id = auth.channel_id
         api_key_id = auth.id
         api_key_prefix = auth.key_prefix
 
         logger.info(
-            f"[TEAM] chat_request platform={platform_name} team_id={team_id} user_id={message.user_id}"
+            f"[CHANNEL] chat_request platform={platform_name} channel_id={channel_id} user_id={message.user_id}"
         )
 
     # Process message (handles both modes)
     return await message_processor.process_message_simple(
         platform_name=platform_name,
-        team_id=team_id,
+        channel_id=channel_id,
         api_key_id=api_key_id,
         api_key_prefix=api_key_prefix,
         user_id=message.user_id,
@@ -487,7 +487,7 @@ async def get_commands(
     - Telegram bot uses TELEGRAM_SERVICE_KEY
     - Returns Telegram platform commands
 
-    ### 2. TEAM MODE:
+    ### 2. CHANNEL MODE:
     - External channels use their channel API keys
     - Returns commands for authenticated channel's platform
 
@@ -508,7 +508,7 @@ async def get_commands(
 
     ## Security
     - Telegram traffic: Logged as [TELEGRAM]
-    - Team traffic: Logged as [TEAM]
+    - Channel traffic: Logged as [CHANNEL]
     - Unauthorized traffic: Blocked with 401/403
     """
     # Determine platform based on authentication type
@@ -517,9 +517,9 @@ async def get_commands(
         platform_name = "telegram"
         logger.info("[TELEGRAM] commands_request platform=telegram")
     else:
-        # TEAM MODE: Authenticated external channel
+        # CHANNEL MODE: Authenticated external channel
         platform_name = auth.channel.channel_id
-        logger.info(f"[TEAM] commands_request platform={platform_name} team_id={auth.channel_id}")
+        logger.info(f"[CHANNEL] commands_request platform={platform_name} channel_id={auth.channel_id}")
 
     # Get allowed commands for this platform
     allowed_commands = platform_manager.get_allowed_commands(platform_name)

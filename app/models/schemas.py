@@ -48,7 +48,7 @@ class IncomingMessage(BaseModel):
     Simplified incoming message for chat endpoint.
 
     Architecture:
-    - Each user has ONE conversation per platform/team (no conversation_id needed)
+    - Each user has ONE conversation per platform/channel (no conversation_id needed)
     - Messages are persisted in database
     - /clear command excludes previous messages from AI context (but keeps in DB)
     - Platform auto-detected from API key's channel.channel_id
@@ -90,7 +90,7 @@ class BotResponse(BaseModel):
     Bot response model for chat endpoint.
 
     Architecture:
-    - Each user has ONE conversation per platform/team (no conversation_id)
+    - Each user has ONE conversation per platform/channel (no conversation_id)
     - total_message_count shows total messages in history (persists through /clear)
     - /clear removes messages from AI context but keeps in database
     - Commands (e.g., /model, /help, /clear) are NOT counted in total_message_count
@@ -254,7 +254,7 @@ class StatsResponse(BaseModel):
                     "total_sessions": 150,
                     "active_sessions": 25,
                     "telegram": {"sessions": 10, "model": "Gemini 2.0 Flash"},
-                    "internal": {"sessions": 15, "teams": 5},
+                    "internal": {"sessions": 15, "channels": 5},
                     "uptime_seconds": 86400.0,
                 }
             ]
@@ -329,7 +329,7 @@ class ErrorResponse(BaseModel):
 
     success: bool = Field(False, examples=[False])
     error: str = Field(
-        ..., examples=["Authentication required", "Invalid API key", "Team not found"]
+        ..., examples=["Authentication required", "Invalid API key", "Channel not found"]
     )
     detail: Optional[str] = Field(None, examples=["No valid API key provided"])
     timestamp: datetime = Field(default_factory=datetime.utcnow)
