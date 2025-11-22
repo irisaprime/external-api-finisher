@@ -3,7 +3,7 @@ Tests for API dependencies (authentication)
 
 Tests three authentication functions:
 - require_admin_access (super admin)
-- require_team_access (channel API keys)
+- require_channel_access (channel API keys)
 - require_chat_access (Telegram + channel API keys)
 """
 
