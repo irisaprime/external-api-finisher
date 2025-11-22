@@ -75,7 +75,7 @@ class SessionManager:
                     logger.error(f"Error loading channel {channel_id}: {e}")
 
             # Get config with channel-specific overrides
-            config = platform_manager.get_config(platform, team=channel)  # param name kept for backward compat
+            config = platform_manager.get_config(platform, channel=channel)
 
             # Load message history from database
             db = get_db_session()
@@ -154,9 +154,9 @@ class SessionManager:
 
         return self.sessions[key]
 
-    def get_session(self, platform: str, user_id: str, team_id: int | None = None) -> ChatSession:
-        """Get existing session by platform, user_id, and team_id"""
-        key = self.get_session_key(platform, user_id, team_id)
+    def get_session(self, platform: str, user_id: str, channel_id: int | None = None) -> ChatSession:
+        """Get existing session by platform, user_id, and channel_id"""
+        key = self.get_session_key(platform, user_id, channel_id)
         return self.sessions.get(key)
 
     def get_session_by_id(self, session_id: str) -> ChatSession | None:
@@ -166,9 +166,9 @@ class SessionManager:
                 return session
         return None
 
-    def delete_session(self, platform: str, user_id: str, team_id: int | None = None) -> bool:
+    def delete_session(self, platform: str, user_id: str, channel_id: int | None = None) -> bool:
         """Delete a session (in-memory only - DB messages remain)"""
-        key = self.get_session_key(platform, user_id, team_id)
+        key = self.get_session_key(platform, user_id, channel_id)
         if key in self.sessions:
             del self.sessions[key]
             logger.info(f"Deleted session: {key}")
@@ -254,13 +254,13 @@ class SessionManager:
         threshold = datetime.utcnow() - timedelta(minutes=minutes)
         return len([s for s in self.sessions.values() if s.last_activity > threshold])
 
-    def get_sessions_by_team(self, team_id: int) -> List[ChatSession]:
-        """Get all sessions for a specific team (for team isolation)"""
-        return [session for session in self.sessions.values() if session.team_id == team_id]
+    def get_sessions_by_channel(self, channel_id: int) -> List[ChatSession]:
+        """Get all sessions for a specific channel (for channel isolation)"""
+        return [session for session in self.sessions.values() if session.channel_id == channel_id]
 
-    def get_session_count_by_team(self, team_id: int) -> int:
-        """Get count of sessions for a specific team"""
-        return len(self.get_sessions_by_team(team_id))
+    def get_session_count_by_channel(self, channel_id: int) -> int:
+        """Get count of sessions for a specific channel"""
+        return len(self.get_sessions_by_channel(channel_id))
 
 
 # Global instance

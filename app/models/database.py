@@ -86,10 +86,6 @@ class Channel(Base):
         return f"<Channel(id={self.id}, channel_id='{self.channel_id}')>"
 
 
-# Backward compatibility alias
-Team = Channel
-
-
 class APIKey(Base):
     """
     API Key model for channels (integration endpoints)

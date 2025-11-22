@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models.database import APIKey, Team, UsageLog
+from app.models.database import APIKey, Channel, UsageLog
 from app.services.api_key_manager import APIKeyManager
 
 
@@ -52,198 +52,192 @@ class TestAPIKeyGeneration:
         assert hash1 == hash2
 
 
-class TestTeamManagement:
-    """Tests for team CRUD operations"""
+class TestChannelManagement:
+    """Tests for channel CRUD operations"""
 
-    def test_create_team(self, test_db: Session):
-        """Test creating a team"""
-        team = APIKeyManager.create_team(
+    def test_create_channel_with_key(self, test_db: Session):
+        """Test creating a channel with auto-generated API key"""
+        channel, api_key_string = APIKeyManager.create_channel_with_key(
             db=test_db,
-            name="Test Team",
-            monthly_quota=100000,
-            daily_quota=5000,
+            channel_id="Internal-Marketing",
+            monthly_quota=150000,
+            daily_quota=7500,
         )
 
-        assert team.id is not None
-        assert team.display_name == "Test Team"
-        assert team.monthly_quota == 100000
-        assert team.daily_quota == 5000
-        assert team.is_active is True
+        assert channel.id is not None
+        assert channel.title == "Internal-Marketing"
+        assert channel.channel_id == "Internal-Marketing"
+        assert channel.monthly_quota == 150000
+        assert channel.daily_quota == 7500
 
-    def test_create_team_minimal(self, test_db: Session):
-        """Test creating a team with minimal parameters"""
-        team = APIKeyManager.create_team(db=test_db, name="Minimal Team")
+        assert api_key_string.startswith("ak_")
 
-        assert team.id is not None
-        assert team.display_name == "Minimal Team"
-        assert team.monthly_quota is None
-        assert team.daily_quota is None
-        assert team.is_active is True
+        keys = APIKeyManager.list_channel_api_keys(db=test_db, channel_id=channel.id)
+        assert len(keys) == 1
+        assert keys[0].name == "API Key for Internal-Marketing"
+        assert keys[0].created_by == "system"
 
-    def test_get_team_by_id(self, test_db: Session, test_team: Team):
-        """Test retrieving a team by ID"""
-        team = APIKeyManager.get_team_by_id(db=test_db, team_id=test_team.id)
+    def test_get_channel_by_id(self, test_db: Session, test_channel: Channel):
+        """Test retrieving a channel by ID"""
+        channel = APIKeyManager.get_channel_by_id(db=test_db, channel_id=test_channel.id)
 
-        assert team is not None
-        assert team.id == test_team.id
-        assert team.display_name == test_team.display_name
+        assert channel is not None
+        assert channel.id == test_channel.id
+        assert channel.title == test_channel.title
 
-    def test_get_team_by_id_not_found(self, test_db: Session):
-        """Test retrieving non-existent team returns None"""
-        team = APIKeyManager.get_team_by_id(db=test_db, team_id=99999)
+    def test_get_channel_by_id_not_found(self, test_db: Session):
+        """Test retrieving non-existent channel returns None"""
+        channel = APIKeyManager.get_channel_by_id(db=test_db, channel_id=99999)
 
-        assert team is None
+        assert channel is None
 
-    def test_get_team_by_name(self, test_db: Session, test_team: Team):
-        """Test retrieving a team by name"""
-        team = APIKeyManager.get_team_by_name(db=test_db, name=test_team.display_name)
+    def test_get_channel_by_title(self, test_db: Session, test_channel: Channel):
+        """Test retrieving a channel by title"""
+        channel = APIKeyManager.get_channel_by_title(db=test_db, title=test_channel.title)
 
-        assert team is not None
-        assert team.id == test_team.id
-        assert team.display_name == test_team.display_name
+        assert channel is not None
+        assert channel.id == test_channel.id
+        assert channel.title == test_channel.title
 
-    def test_get_team_by_platform_name(self, test_db: Session):
-        """Test retrieving a team by platform name"""
-        team = APIKeyManager.create_team(
+    def test_get_channel_by_channel_id(self, test_db: Session):
+        """Test retrieving a channel by channel_id"""
+        channel, _ = APIKeyManager.create_channel_with_key(
             db=test_db,
-            name="Internal-BI",
+            channel_id="Internal-BI",
         )
-        team.platform_name = "Internal-BI"
+
+        found_channel = APIKeyManager.get_channel_by_channel_id(db=test_db, channel_id="Internal-BI")
+
+        assert found_channel is not None
+        assert found_channel.id == channel.id
+        assert found_channel.channel_id == "Internal-BI"
+
+    def test_list_all_channels(self, test_db: Session):
+        """Test listing all channels"""
+        channel1, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Channel-1")
+        channel2, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Channel-2")
+
+        channels = APIKeyManager.list_all_channels(db=test_db, active_only=False)
+
+        assert len(channels) >= 2
+        channel_ids = [c.id for c in channels]
+        assert channel1.id in channel_ids
+        assert channel2.id in channel_ids
+
+    def test_list_all_channels_active_only(self, test_db: Session):
+        """Test listing only active channels"""
+        active_channel, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Active-Channel")
+        inactive_channel, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Inactive-Channel")
+        inactive_channel.is_active = False
         test_db.commit()
 
-        found_team = APIKeyManager.get_team_by_platform_name(db=test_db, platform_name="Internal-BI")
+        channels = APIKeyManager.list_all_channels(db=test_db, active_only=True)
 
-        assert found_team is not None
-        assert found_team.id == team.id
-        assert found_team.platform_name == "Internal-BI"
+        channel_ids = [c.id for c in channels]
+        assert active_channel.id in channel_ids
+        assert inactive_channel.id not in channel_ids
 
-    def test_list_all_teams(self, test_db: Session):
-        """Test listing all teams"""
-        team1 = APIKeyManager.create_team(db=test_db, name="Team 1")
-        team2 = APIKeyManager.create_team(db=test_db, name="Team 2")
+    def test_update_channel(self, test_db: Session, test_channel: Channel):
+        """Test updating channel settings"""
+        original_title = test_channel.title
 
-        teams = APIKeyManager.list_all_teams(db=test_db, active_only=False)
-
-        assert len(teams) >= 2
-        team_ids = [t.id for t in teams]
-        assert team1.id in team_ids
-        assert team2.id in team_ids
-
-    def test_list_all_teams_active_only(self, test_db: Session):
-        """Test listing only active teams"""
-        active_team = APIKeyManager.create_team(db=test_db, name="Active Team")
-        inactive_team = APIKeyManager.create_team(db=test_db, name="Inactive Team")
-        inactive_team.is_active = False
-        test_db.commit()
-
-        teams = APIKeyManager.list_all_teams(db=test_db, active_only=True)
-
-        team_ids = [t.id for t in teams]
-        assert active_team.id in team_ids
-        assert inactive_team.id not in team_ids
-
-    def test_update_team(self, test_db: Session, test_team: Team):
-        """Test updating team settings"""
-        original_display_name = test_team.display_name
-
-        updated_team = APIKeyManager.update_team(
+        updated_channel = APIKeyManager.update_channel(
             db=test_db,
-            team_id=test_team.id,
-            platform_name="Updated-Platform",
+            channel_id=test_channel.id,
+            new_channel_id="Updated-Platform",
             monthly_quota=200000,
             daily_quota=10000,
             is_active=False,
         )
 
-        assert updated_team is not None
-        assert updated_team.platform_name == "Updated-Platform"
-        assert updated_team.display_name == original_display_name  # display_name should NOT change when updating platform_name
-        assert updated_team.monthly_quota == 200000
-        assert updated_team.daily_quota == 10000
-        assert updated_team.is_active is False
+        assert updated_channel is not None
+        assert updated_channel.channel_id == "Updated-Platform"
+        assert updated_channel.title == original_title  # title should NOT change when updating channel_id
+        assert updated_channel.monthly_quota == 200000
+        assert updated_channel.daily_quota == 10000
+        assert updated_channel.is_active is False
 
-    def test_update_team_partial(self, test_db: Session, test_team: Team):
-        """Test updating only some team fields"""
-        original_platform = test_team.platform_name
+    def test_update_channel_partial(self, test_db: Session, test_channel: Channel):
+        """Test updating only some channel fields"""
+        original_channel_id = test_channel.channel_id
 
-        updated_team = APIKeyManager.update_team(
-            db=test_db, team_id=test_team.id, monthly_quota=500000
+        updated_channel = APIKeyManager.update_channel(
+            db=test_db, channel_id=test_channel.id, monthly_quota=500000
         )
 
-        assert updated_team is not None
-        assert updated_team.platform_name == original_platform
-        assert updated_team.monthly_quota == 500000
+        assert updated_channel is not None
+        assert updated_channel.channel_id == original_channel_id
+        assert updated_channel.monthly_quota == 500000
 
-    def test_update_team_without_monthly_quota(self, test_db: Session, test_team: Team):
-        """Test updating team without changing monthly_quota (line 406 branch)"""
-        original_monthly = test_team.monthly_quota
+    def test_update_channel_without_monthly_quota(self, test_db: Session, test_channel: Channel):
+        """Test updating channel without changing monthly_quota"""
+        original_monthly = test_channel.monthly_quota
 
-        updated_team = APIKeyManager.update_team(
-            db=test_db, team_id=test_team.id, daily_quota=3000
+        updated_channel = APIKeyManager.update_channel(
+            db=test_db, channel_id=test_channel.id, daily_quota=3000
         )
 
-        assert updated_team is not None
-        assert updated_team.monthly_quota == original_monthly
-        assert updated_team.daily_quota == 3000
+        assert updated_channel is not None
+        assert updated_channel.monthly_quota == original_monthly
+        assert updated_channel.daily_quota == 3000
 
-    def test_update_team_not_found(self, test_db: Session):
-        """Test updating non-existent team returns None"""
-        result = APIKeyManager.update_team(db=test_db, team_id=99999, monthly_quota=100000)
+    def test_update_channel_not_found(self, test_db: Session):
+        """Test updating non-existent channel returns None"""
+        result = APIKeyManager.update_channel(db=test_db, channel_id=99999, monthly_quota=100000)
 
         assert result is None
 
-    def test_update_team_platform_name_independent_of_name(self, test_db: Session):
-        """Test that updating platform_name doesn't modify the name field (bug fix test)
+    def test_update_channel_id_independent_of_title(self, test_db: Session):
+        """Test that updating channel_id doesn't modify the title field
 
-        This test verifies the fix for the bug where updating platform_name would
-        incorrectly sync the name field, causing unique constraint violations.
+        This test verifies that channel_id and title are independent fields.
         """
-        # Create a team - initially name and platform_name are the same
-        team = APIKeyManager.create_team(db=test_db, name="Original-Team")
-        assert team.display_name == "Original-Team"
-        assert team.platform_name == "Original-Team"
+        # Create a channel
+        channel, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Original-Channel")
+        assert channel.title == "Original-Channel"
+        assert channel.channel_id == "Original-Channel"
 
-        # Update only the platform_name
-        updated_team = APIKeyManager.update_team(
-            db=test_db, team_id=team.id, platform_name="Updated-Platform"
+        # Update only the channel_id
+        updated_channel = APIKeyManager.update_channel(
+            db=test_db, channel_id=channel.id, new_channel_id="Updated-Platform"
         )
 
-        # Verify platform_name changed but name did NOT change
-        assert updated_team is not None
-        assert updated_team.platform_name == "Updated-Platform"
-        assert updated_team.display_name == "Original-Team"  # display_name should remain unchanged
+        # Verify channel_id changed but title did NOT change
+        assert updated_channel is not None
+        assert updated_channel.channel_id == "Updated-Platform"
+        assert updated_channel.title == "Original-Channel"  # title should remain unchanged
 
-    def test_delete_team_with_no_keys(self, test_db: Session):
-        """Test deleting a team with no API keys"""
-        team = APIKeyManager.create_team(db=test_db, name="Deletable Team")
-        team_id = team.id
+    def test_delete_channel_with_no_keys(self, test_db: Session):
+        """Test deleting a channel with no API keys"""
+        channel, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Deletable-Channel")
+        channel_id = channel.id
 
-        result = APIKeyManager.delete_team(db=test_db, team_id=team_id)
+        result = APIKeyManager.delete_channel(db=test_db, channel_id=channel_id)
 
         assert result is True
-        assert APIKeyManager.get_team_by_id(db=test_db, team_id=team_id) is None
+        assert APIKeyManager.get_channel_by_id(db=test_db, channel_id=channel_id) is None
 
-    def test_delete_team_with_active_keys(self, test_db: Session, test_team: Team):
-        """Test deleting a team with active API keys fails without force"""
+    def test_delete_channel_with_active_keys(self, test_db: Session, test_channel: Channel):
+        """Test deleting a channel with active API keys fails without force"""
         api_key_string, api_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Test Key"
+            db=test_db, channel_id=test_channel.id, name="Test Key"
         )
 
         with pytest.raises(ValueError, match="active API keys"):
-            APIKeyManager.delete_team(db=test_db, team_id=test_team.id, force=False)
+            APIKeyManager.delete_channel(db=test_db, channel_id=test_channel.id, force=False)
 
-    def test_delete_team_with_force(self, test_db: Session):
-        """Test force deleting a team with active keys"""
-        team = APIKeyManager.create_team(db=test_db, name="Force Delete Team")
+    def test_delete_channel_with_force(self, test_db: Session):
+        """Test force deleting a channel with active keys"""
+        channel, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Force-Delete-Channel")
         api_key_string, api_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=team.id, name="Test Key"
+            db=test_db, channel_id=channel.id, name="Test Key"
         )
 
         api_key_id = api_key.id
-        team_id = team.id
+        channel_id = channel.id
 
         usage_log = UsageLog(
-            team_id=team_id,
+            channel_id=channel_id,
             api_key_id=api_key_id,
             platform="test",
             session_id="session123",
@@ -255,50 +249,28 @@ class TestTeamManagement:
         test_db.add(usage_log)
         test_db.commit()
 
-        result = APIKeyManager.delete_team(db=test_db, team_id=team_id, force=True)
+        result = APIKeyManager.delete_channel(db=test_db, channel_id=channel_id, force=True)
 
         assert result is True
-        assert APIKeyManager.get_team_by_id(db=test_db, team_id=team_id) is None
+        assert APIKeyManager.get_channel_by_id(db=test_db, channel_id=channel_id) is None
         assert test_db.query(APIKey).filter(APIKey.id == api_key_id).first() is None
-        assert test_db.query(UsageLog).filter(UsageLog.team_id == team_id).first() is None
+        assert test_db.query(UsageLog).filter(UsageLog.channel_id == channel_id).first() is None
 
-    def test_delete_team_not_found(self, test_db: Session):
-        """Test deleting non-existent team returns False"""
-        result = APIKeyManager.delete_team(db=test_db, team_id=99999)
+    def test_delete_channel_not_found(self, test_db: Session):
+        """Test deleting non-existent channel returns False"""
+        result = APIKeyManager.delete_channel(db=test_db, channel_id=99999)
 
         assert result is False
-
-    def test_create_team_with_key(self, test_db: Session):
-        """Test creating a team with auto-generated API key"""
-        team, api_key_string = APIKeyManager.create_team_with_key(
-            db=test_db,
-            platform_name="Internal-Marketing",
-            monthly_quota=150000,
-            daily_quota=7500,
-        )
-
-        assert team.id is not None
-        assert team.display_name == "Internal-Marketing"
-        assert team.platform_name == "Internal-Marketing"
-        assert team.monthly_quota == 150000
-        assert team.daily_quota == 7500
-
-        assert api_key_string.startswith("ak_")
-
-        keys = APIKeyManager.list_team_api_keys(db=test_db, team_id=team.id)
-        assert len(keys) == 1
-        assert keys[0].name == "API Key for Internal-Marketing"
-        assert keys[0].created_by == "system"
 
 
 class TestAPIKeyManagement:
     """Tests for API key CRUD operations"""
 
-    def test_create_api_key(self, test_db: Session, test_team: Team):
+    def test_create_api_key(self, test_db: Session, test_channel: Channel):
         """Test creating an API key"""
         api_key_string, api_key = APIKeyManager.create_api_key(
             db=test_db,
-            team_id=test_team.id,
+            channel_id=test_channel.id,
             name="Test Key",
             created_by="admin",
             description="Test Description",
@@ -309,7 +281,7 @@ class TestAPIKeyManagement:
         assert api_key_string.startswith("ak_")
         assert api_key.id is not None
         assert api_key.name == "Test Key"
-        assert api_key.team_id == test_team.id
+        assert api_key.channel_id == test_channel.id
         assert api_key.created_by == "admin"
         assert api_key.description == "Test Description"
         assert api_key.monthly_quota == 50000
@@ -317,20 +289,20 @@ class TestAPIKeyManagement:
         assert api_key.is_active is True
         assert api_key.expires_at is None
 
-    def test_create_api_key_with_expiration(self, test_db: Session, test_team: Team):
+    def test_create_api_key_with_expiration(self, test_db: Session, test_channel: Channel):
         """Test creating an API key with expiration"""
         api_key_string, api_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Expiring Key", expires_in_days=30
+            db=test_db, channel_id=test_channel.id, name="Expiring Key", expires_in_days=30
         )
 
         assert api_key.expires_at is not None
         expected_expiry = datetime.utcnow() + timedelta(days=30)
         assert abs((api_key.expires_at - expected_expiry).total_seconds()) < 5
 
-    def test_validate_api_key_success(self, test_db: Session, test_team: Team):
+    def test_validate_api_key_success(self, test_db: Session, test_channel: Channel):
         """Test validating a valid API key"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Valid Key"
+            db=test_db, channel_id=test_channel.id, name="Valid Key"
         )
 
         validated_key = APIKeyManager.validate_api_key(db=test_db, api_key=api_key_string)
@@ -345,10 +317,10 @@ class TestAPIKeyManagement:
 
         assert validated_key is None
 
-    def test_validate_api_key_inactive(self, test_db: Session, test_team: Team):
+    def test_validate_api_key_inactive(self, test_db: Session, test_channel: Channel):
         """Test validating an inactive API key returns None"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Inactive Key"
+            db=test_db, channel_id=test_channel.id, name="Inactive Key"
         )
 
         created_key.is_active = False
@@ -358,10 +330,10 @@ class TestAPIKeyManagement:
 
         assert validated_key is None
 
-    def test_validate_api_key_expired(self, test_db: Session, test_team: Team):
+    def test_validate_api_key_expired(self, test_db: Session, test_channel: Channel):
         """Test validating an expired API key returns None"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Expired Key"
+            db=test_db, channel_id=test_channel.id, name="Expired Key"
         )
 
         created_key.expires_at = datetime.utcnow() - timedelta(days=1)
@@ -371,23 +343,23 @@ class TestAPIKeyManagement:
 
         assert validated_key is None
 
-    def test_validate_api_key_inactive_team(self, test_db: Session, test_team: Team):
-        """Test validating an API key from inactive team returns None"""
+    def test_validate_api_key_inactive_channel(self, test_db: Session, test_channel: Channel):
+        """Test validating an API key from inactive channel returns None"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Team Inactive Key"
+            db=test_db, channel_id=test_channel.id, name="Channel Inactive Key"
         )
 
-        test_team.is_active = False
+        test_channel.is_active = False
         test_db.commit()
 
         validated_key = APIKeyManager.validate_api_key(db=test_db, api_key=api_key_string)
 
         assert validated_key is None
 
-    def test_revoke_api_key(self, test_db: Session, test_team: Team):
+    def test_revoke_api_key(self, test_db: Session, test_channel: Channel):
         """Test revoking an API key"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Revoke Test Key"
+            db=test_db, channel_id=test_channel.id, name="Revoke Test Key"
         )
 
         result = APIKeyManager.revoke_api_key(db=test_db, key_id=created_key.id)
@@ -403,10 +375,10 @@ class TestAPIKeyManagement:
 
         assert result is False
 
-    def test_delete_api_key(self, test_db: Session, test_team: Team):
+    def test_delete_api_key(self, test_db: Session, test_channel: Channel):
         """Test permanently deleting an API key"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Delete Test Key"
+            db=test_db, channel_id=test_channel.id, name="Delete Test Key"
         )
         key_id = created_key.id
 
@@ -421,27 +393,31 @@ class TestAPIKeyManagement:
 
         assert result is False
 
-    def test_list_team_api_keys(self, test_db: Session, test_team: Team):
-        """Test listing all API keys for a team"""
+    def test_list_channel_api_keys(self, test_db: Session, test_channel: Channel):
+        """Test listing all API keys for a channel"""
         api_key1_string, api_key1 = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Key 1"
+            db=test_db, channel_id=test_channel.id, name="Key 1"
         )
         api_key2_string, api_key2 = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Key 2"
+            db=test_db, channel_id=test_channel.id, name="Key 2"
         )
 
-        keys = APIKeyManager.list_team_api_keys(db=test_db, team_id=test_team.id)
+        keys = APIKeyManager.list_channel_api_keys(db=test_db, channel_id=test_channel.id)
 
         assert len(keys) >= 2
         key_ids = [k.id for k in keys]
         assert api_key1.id in key_ids
         assert api_key2.id in key_ids
 
-    def test_list_team_api_keys_empty(self, test_db: Session, test_team: Team):
-        """Test listing API keys for team with no keys"""
-        new_team = APIKeyManager.create_team(db=test_db, name="Empty Team")
+    def test_list_channel_api_keys_empty(self, test_db: Session):
+        """Test listing API keys for channel with no keys"""
+        new_channel, _ = APIKeyManager.create_channel_with_key(db=test_db, channel_id="Empty-Channel")
+        # Delete the auto-created key
+        keys = APIKeyManager.list_channel_api_keys(db=test_db, channel_id=new_channel.id)
+        for key in keys:
+            APIKeyManager.delete_api_key(db=test_db, key_id=key.id)
 
-        keys = APIKeyManager.list_team_api_keys(db=test_db, team_id=new_team.id)
+        keys = APIKeyManager.list_channel_api_keys(db=test_db, channel_id=new_channel.id)
 
         assert len(keys) == 0
 
@@ -449,10 +425,10 @@ class TestAPIKeyManagement:
 class TestAPIKeyValidation:
     """Tests for API key validation edge cases"""
 
-    def test_validate_updates_last_used_at(self, test_db: Session, test_team: Team):
+    def test_validate_updates_last_used_at(self, test_db: Session, test_channel: Channel):
         """Test that validation updates last_used_at timestamp"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Timestamp Test Key"
+            db=test_db, channel_id=test_channel.id, name="Timestamp Test Key"
         )
 
         original_last_used = created_key.last_used_at
@@ -463,10 +439,10 @@ class TestAPIKeyValidation:
         if original_last_used is not None:
             assert validated_key.last_used_at >= original_last_used
 
-    def test_hash_consistency_with_generated_key(self, test_db: Session, test_team: Team):
+    def test_hash_consistency_with_generated_key(self, test_db: Session, test_channel: Channel):
         """Test that hash validation works with generated keys"""
         api_key_string, created_key = APIKeyManager.create_api_key(
-            db=test_db, team_id=test_team.id, name="Hash Test Key"
+            db=test_db, channel_id=test_channel.id, name="Hash Test Key"
         )
 
         manual_hash = APIKeyManager.hash_key(api_key_string)

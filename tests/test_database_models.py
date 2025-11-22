@@ -1,7 +1,7 @@
 """
 Tests for Database models and database management
 
-Tests SQLAlchemy models (Team, APIKey, UsageLog) and Database class
+Tests SQLAlchemy models (Channel, APIKey, UsageLog) and Database class
 """
 
 import pytest
@@ -10,23 +10,23 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-from app.models.database import Base, Team, APIKey, UsageLog, Database
+from app.models.database import Base, Channel, APIKey, UsageLog, Database
 
 
-class TestTeamModel:
-    """Tests for Team model"""
+class TestChannelModel:
+    """Tests for Channel model"""
 
-    def test_team_repr(self):
-        """Test Team __repr__ method (line 58 coverage)"""
-        team = Team(
+    def test_channel_repr(self):
+        """Test Channel __repr__ method"""
+        channel = Channel(
             id=1,
-            display_name="Test Team",
-            platform_name="test-platform"
+            title="Test Channel",
+            channel_id="test-platform"
         )
 
-        repr_str = repr(team)
+        repr_str = repr(channel)
 
-        assert "Team" in repr_str
+        assert "Channel" in repr_str
         assert "test-platform" in repr_str
         assert "id=1" in repr_str
 
@@ -39,7 +39,7 @@ class TestAPIKeyModel:
         api_key = APIKey(
             id=10,
             key_prefix="ak_test_",
-            team_id=5
+            channel_id=5
         )
 
         repr_str = repr(api_key)
@@ -47,14 +47,14 @@ class TestAPIKeyModel:
         assert "APIKey" in repr_str
         assert "id=10" in repr_str
         assert "ak_test_" in repr_str
-        assert "team_id=5" in repr_str
+        assert "channel_id=5" in repr_str
 
     def test_api_key_is_expired_no_expiry(self):
         """Test is_expired when expires_at is None (lines 104-105 coverage)"""
         api_key = APIKey(
             id=10,
             key_prefix="ak_test_",
-            team_id=5,
+            channel_id=5,
             expires_at=None
         )
 
@@ -68,7 +68,7 @@ class TestAPIKeyModel:
         api_key = APIKey(
             id=10,
             key_prefix="ak_test_",
-            team_id=5,
+            channel_id=5,
             expires_at=future_date
         )
 
@@ -82,7 +82,7 @@ class TestAPIKeyModel:
         api_key = APIKey(
             id=10,
             key_prefix="ak_test_",
-            team_id=5,
+            channel_id=5,
             expires_at=past_date
         )
 

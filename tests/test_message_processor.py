@@ -23,8 +23,8 @@ def mock_session():
     session.platform_config = {"rate_limit": 60, "max_history": 10}
     session.get_recent_history = Mock(return_value=[])
 
-    # Team isolation fields
-    session.team_id = 1
+    # Channel isolation fields
+    session.channel_id = 1
     session.api_key_id = 1
     session.api_key_prefix = "ak_test"
     session.user_id = "user123"
@@ -72,7 +72,7 @@ class TestProcessMessageSimple:
 
             result = await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -98,7 +98,7 @@ class TestProcessMessageSimple:
 
         result = await processor.process_message_simple(
             platform_name="Internal-BI",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test",
             user_id="user123",
@@ -122,7 +122,7 @@ class TestProcessMessageSimple:
 
         result = await processor.process_message_simple(
             platform_name="Internal-BI",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test",
             user_id="user123",
@@ -157,7 +157,7 @@ class TestProcessMessageSimple:
 
             result = await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -186,7 +186,7 @@ class TestProcessMessageSimple:
 
             result = await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -222,7 +222,7 @@ class TestProcessMessageSimple:
 
             await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -232,7 +232,7 @@ class TestProcessMessageSimple:
             mock_tracker.log_usage.assert_called_once()
             call_kwargs = mock_tracker.log_usage.call_args.kwargs
             assert call_kwargs["success"] is True
-            assert call_kwargs["team_id"] == 1
+            assert call_kwargs["channel_id"] == 1
             assert call_kwargs["api_key_id"] == 1
 
     @pytest.mark.asyncio
@@ -240,10 +240,10 @@ class TestProcessMessageSimple:
     @patch("app.services.message_processor.command_processor")
     @patch("app.services.message_processor.UsageTracker")
     @patch("app.services.message_processor.get_db_session")
-    async def test_process_simple_no_logging_without_team(
+    async def test_process_simple_no_logging_without_channel(
         self, mock_db, mock_tracker, mock_cmd_proc, mock_session_mgr, processor, mock_session
     ):
-        """Test that Telegram (no team) requests are not logged"""
+        """Test that Telegram (no channel) requests are not logged"""
         mock_session_mgr.get_or_create_session.return_value = mock_session
         mock_session_mgr.check_rate_limit.return_value = True
         mock_cmd_proc.is_command.return_value = False
@@ -255,7 +255,7 @@ class TestProcessMessageSimple:
 
             await processor.process_message_simple(
                 platform_name="telegram",
-                team_id=None,
+                channel_id=None,
                 api_key_id=None,
                 api_key_prefix=None,
                 user_id="user123",
@@ -436,7 +436,7 @@ class TestErrorLoggingEdgeCases:
 
         result = await processor.process_message_simple(
             platform_name="Internal-BI",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test",
             user_id="user123",
@@ -473,7 +473,7 @@ class TestErrorLoggingEdgeCases:
 
             result = await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -517,7 +517,7 @@ class TestProcessMessageSimpleEdgeCases:
 
             result = await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -552,7 +552,7 @@ class TestProcessMessageSimpleEdgeCases:
 
             result = await processor.process_message_simple(
                 platform_name="Internal-BI",
-                team_id=1,
+                channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
                 user_id="user123",
@@ -575,7 +575,7 @@ class TestLegacyProcessMessage:
         msg.conversation_id = "conv456"
         msg.text = "Hello"
         msg.auth_token = None
-        msg.metadata = {"team_id": 1, "api_key_id": 1, "api_key_prefix": "ak_test"}
+        msg.metadata = {"channel_id": 1, "api_key_id": 1, "api_key_prefix": "ak_test"}
         msg.attachments = []
         return msg
 

@@ -325,7 +325,7 @@ class ChannelCreateResponse(BaseModel):
 class UsageStatsResponse(BaseModel):
     """Response model for usage statistics (team-based only, no api_key_id)
 
-    Note: team_name contains the channel's display_name (supports Persian/Farsi)
+    Note: team_name contains the channel's title (supports Persian/Farsi)
     """
 
     model_config = ConfigDict(
@@ -888,7 +888,7 @@ class ChannelsListResponse(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "teams": [
+                    "channels": [
                         {
                             "id": 1,
                             "title": "Internal BI Team",
@@ -915,10 +915,10 @@ class ChannelsListResponse(BaseModel):
         }
     )
 
-    teams: List[ChannelResponse]
+    channels: List[ChannelResponse]
     total_report: Optional[Dict[str, Any]] = Field(
         None,
-        description="Total aggregated report across all teams (included when totally=true)",
+        description="Total aggregated report across all channels (included when totally=true)",
     )
 
 
@@ -927,14 +927,14 @@ class ChannelsListResponse(BaseModel):
     response_model=ChannelsListResponse,
     responses={
         200: {
-            "description": "Teams list retrieved successfully",
+            "description": "Channels list retrieved successfully",
             "content": {
                 "application/json": {
                     "examples": {
-                        "teams_list": {
-                            "summary": "List of teams with usage statistics",
+                        "channels_list": {
+                            "summary": "List of channels with usage statistics",
                             "value": {
-                                "teams": [
+                                "channels": [
                                     {
                                         "id": 1,
                                         "title": "Internal BI Team",
@@ -953,10 +953,10 @@ class ChannelsListResponse(BaseModel):
                                 "total_report": None
                             }
                         },
-                        "teams_with_total": {
-                            "summary": "Teams list with total aggregated report",
+                        "channels_with_total": {
+                            "summary": "Channels list with total aggregated report",
                             "value": {
-                                "teams": [
+                                "channels": [
                                     {
                                         "id": 1,
                                         "title": "Internal BI Team",
@@ -1156,7 +1156,7 @@ async def get_channels(
         }
 
     return ChannelsListResponse(
-        teams=responses,
+        channels=responses,
         total_report=total_report,
     )
 

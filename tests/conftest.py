@@ -31,10 +31,10 @@ def test_db():
 
 
 @pytest.fixture
-def test_team(test_db: Session):
-    """Create a test channel (fixture kept as test_team for backward compatibility)"""
+def test_channel(test_db: Session):
+    """Create a test channel for testing"""
     channel = Channel(
-        title="Test Team",
+        title="Test Channel",
         channel_id="Test-Platform",
         access_type="private",
         monthly_quota=100000,

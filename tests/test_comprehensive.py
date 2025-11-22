@@ -23,29 +23,29 @@ def client():
 
 
 @pytest.fixture
-def mock_team():
-    """Mock team with API key"""
-    team = Mock()
-    team.id = 1
-    team.display_name = "Internal BI Team"
-    team.platform_name = "Internal-BI"
-    team.monthly_quota = 100000
-    team.daily_quota = 5000
-    team.is_active = True
-    team.created_at = datetime(2025, 1, 1, 12, 0, 0)
-    team.updated_at = datetime(2025, 1, 1, 12, 0, 0)
-    return team
+def mock_channel():
+    """Mock channel with API key"""
+    channel = Mock()
+    channel.id = 1
+    channel.title = "Internal BI Channel"
+    channel.channel_id = "Internal-BI"
+    channel.monthly_quota = 100000
+    channel.daily_quota = 5000
+    channel.is_active = True
+    channel.created_at = datetime(2025, 1, 1, 12, 0, 0)
+    channel.updated_at = datetime(2025, 1, 1, 12, 0, 0)
+    return channel
 
 
 @pytest.fixture
-def mock_api_key(mock_team):
+def mock_api_key(mock_channel):
     """Mock valid API key"""
     key = Mock()
     key.id = 1
-    key.team_id = 1
+    key.channel_id = 1
     key.key_prefix = "ark_test"
     key.is_active = True
-    key.team = mock_team
+    key.channel = mock_channel
     return key
 
 
@@ -273,37 +273,37 @@ class TestCommandsEndpoint:
         assert "Authentication required" in data["detail"]
 
 
-class TestAdminTeamEndpoints:
-    """Test admin team management endpoints"""
+class TestAdminChannelEndpoints:
+    """Test admin channel management endpoints"""
 
     @patch("app.api.dependencies.settings")
-    @patch("app.services.api_key_manager.APIKeyManager.list_all_teams")
-    def test_list_teams(self, mock_list, mock_settings, mock_team, client):
-        """Admin can list all teams"""
+    @patch("app.services.api_key_manager.APIKeyManager.list_all_channels")
+    def test_list_channels(self, mock_list, mock_settings, mock_channel, client):
+        """Admin can list all channels"""
         mock_settings.super_admin_keys_set = {"admin_key"}
-        mock_list.return_value = [mock_team]
+        mock_list.return_value = [mock_channel]
 
         response = client.get("/v1/admin/teams", headers={"Authorization": "Bearer admin_key"})
         assert response.status_code == 200
         data = response.json()
-        # New response structure includes "teams" list and optional "total_report"
-        assert "teams" in data
-        assert isinstance(data["teams"], list)
-        assert len(data["teams"]) > 0
+        # New response structure includes "channels" list and optional "total_report"
+        assert "channels" in data
+        assert isinstance(data["channels"], list)
+        assert len(data["channels"]) > 0
 
     @patch("app.api.dependencies.settings")
-    @patch("app.services.api_key_manager.APIKeyManager.get_team_by_platform_name")
-    @patch("app.services.api_key_manager.APIKeyManager.create_team_with_key")
-    def test_create_team(self, mock_create, mock_get_by_name, mock_settings, mock_team, client):
-        """Admin can create new team"""
+    @patch("app.services.api_key_manager.APIKeyManager.get_channel_by_channel_id")
+    @patch("app.services.api_key_manager.APIKeyManager.create_channel_with_key")
+    def test_create_channel(self, mock_create, mock_get_by_name, mock_settings, mock_channel, client):
+        """Admin can create new channel"""
         mock_settings.super_admin_keys_set = {"admin_key"}
-        mock_get_by_name.return_value = None  # No existing team with this name
-        mock_create.return_value = (mock_team, "ark_generated_key_12345")
+        mock_get_by_name.return_value = None  # No existing channel with this name
+        mock_create.return_value = (mock_channel, "ark_generated_key_12345")
 
         response = client.post(
             "/v1/admin/teams",
             headers={"Authorization": "Bearer admin_key"},
-            json={"platform_name": "Test-Team", "monthly_quota": 50000, "daily_quota": 2000},
+            json={"channel_id": "Test-Channel", "monthly_quota": 50000, "daily_quota": 2000},
         )
         assert response.status_code == 200
         data = response.json()
@@ -311,31 +311,31 @@ class TestAdminTeamEndpoints:
         assert "warning" in data
 
     @patch("app.api.dependencies.settings")
-    @patch("app.services.api_key_manager.APIKeyManager.get_team_by_id")
-    def test_get_team_details(self, mock_get, mock_settings, mock_team, client):
-        """Admin can get team details"""
+    @patch("app.services.api_key_manager.APIKeyManager.get_channel_by_id")
+    def test_get_channel_details(self, mock_get, mock_settings, mock_channel, client):
+        """Admin can get channel details"""
         mock_settings.super_admin_keys_set = {"admin_key"}
-        mock_get.return_value = mock_team
+        mock_get.return_value = mock_channel
 
         # New endpoint uses query parameter instead of path parameter
-        response = client.get("/v1/admin/teams?team_id=1", headers={"Authorization": "Bearer admin_key"})
+        response = client.get("/v1/admin/teams?channel_id=1", headers={"Authorization": "Bearer admin_key"})
         assert response.status_code == 200
         data = response.json()
-        # Response now includes "teams" list with single item
-        assert "teams" in data
-        assert len(data["teams"]) == 1
-        assert data["teams"][0]["id"] == 1
-        assert data["teams"][0]["platform_name"] == "Internal-BI"
+        # Response now includes "channels" list with single item
+        assert "channels" in data
+        assert len(data["channels"]) == 1
+        assert data["channels"][0]["id"] == 1
+        assert data["channels"][0]["channel_id"] == "Internal-BI"
 
     @patch("app.api.dependencies.settings")
-    @patch("app.services.api_key_manager.APIKeyManager.get_team_by_id")
-    def test_get_team_not_found(self, mock_get, mock_settings, client):
-        """Admin gets 404 for non-existent team"""
+    @patch("app.services.api_key_manager.APIKeyManager.get_channel_by_id")
+    def test_get_channel_not_found(self, mock_get, mock_settings, client):
+        """Admin gets 404 for non-existent channel"""
         mock_settings.super_admin_keys_set = {"admin_key"}
-        mock_get.return_value = None  # Team not found
+        mock_get.return_value = None  # Channel not found
 
         # New endpoint uses query parameter instead of path parameter
-        response = client.get("/v1/admin/teams?team_id=999", headers={"Authorization": "Bearer admin_key"})
+        response = client.get("/v1/admin/teams?channel_id=999", headers={"Authorization": "Bearer admin_key"})
         assert response.status_code == 404
 
 

@@ -36,7 +36,7 @@ def create_channel(name: str, daily_quota: int = None, monthly_quota: int = None
     session = next(db.get_session())
 
     try:
-        channel = APIKeyManager.create_channel(
+        channel = APIKeyManager.create_channel_with_key(
             db=session,
             name=name,
             daily_quota=daily_quota,
@@ -44,8 +44,8 @@ def create_channel(name: str, daily_quota: int = None, monthly_quota: int = None
         )
         print(f"[OK] Channel created successfully!")
         print(f"  ID: {channel.id}")
-        print(f"  Display Name: {channel.display_name}")
-        print(f"  Platform: {channel.platform_name}")
+        print(f"  Display Name: {channel.title}")
+        print(f"  Platform: {channel.channel_id}")
         print(f"  Daily Quota: {channel.daily_quota or 'Unlimited'}")
         print(f"  Monthly Quota: {channel.monthly_quota or 'Unlimited'}")
     except Exception as e:
@@ -68,8 +68,8 @@ def list_channels():
     for channel in channels:
         table_data.append([
             channel.id,
-            channel.display_name,
-            channel.platform_name,
+            channel.title,
+            channel.channel_id,
             channel.daily_quota or "unlimited",
             channel.monthly_quota or "unlimited",
             "active" if channel.is_active else "inactive",
@@ -92,7 +92,7 @@ def delete_channel(channel_id: int, force: bool = False):
             print(f"[ERROR] Channel with ID {channel_id} not found")
             sys.exit(1)
 
-        channel_name = channel.display_name
+        channel_name = channel.title
 
         # Confirm deletion
         if not force:
@@ -170,7 +170,7 @@ def create_api_key(
         print()
         print(f"  Key Prefix: {api_key_obj.key_prefix}")
         print(f"  Name: {api_key_obj.name}")
-        print(f"  Channel: {channel.display_name} (ID: {channel_id})")
+        print(f"  Channel: {channel.title} (ID: {channel_id})")
         print(f"  Expires: {api_key_obj.expires_at or 'Never'}")
         print()
         print("  ℹ️  ACCESS: /api/v1/chat endpoint only (external channel)")
@@ -207,7 +207,7 @@ def list_api_keys(channel_id: int = None):
             key.id,
             key.key_prefix,
             key.name,
-            key.channel.display_name,
+            key.channel.title,
             "active" if key.is_active else "inactive",
             key.last_used_at.strftime("%Y-%m-%d %H:%M") if key.last_used_at else "Never",
             key.expires_at.strftime("%Y-%m-%d") if key.expires_at else "Never",
@@ -307,7 +307,6 @@ def main():
     key_create = key_subparsers.add_parser("create", help="Create a new API key")
     key_create.add_argument("channel_id", type=int, help="Channel ID")
     key_create.add_argument("name", help="Key name")
-    key_create.add_argument("--level", choices=["user", "team_lead", "admin"], default="user", help="Access level")
     key_create.add_argument("--description", help="Key description")
     key_create.add_argument("--expires", type=int, help="Expiration in days")
 
@@ -346,7 +345,7 @@ def main():
 
     elif args.command == "key":
         if args.subcommand == "create":
-            create_api_key(args.channel_id, args.name, args.level, args.description, args.expires)
+            create_api_key(args.channel_id, args.name, args.description, args.expires)
         elif args.subcommand == "list":
             list_api_keys(args.channel_id)
         elif args.subcommand == "revoke":

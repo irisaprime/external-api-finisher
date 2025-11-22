@@ -3,7 +3,7 @@ Session Management Tests
 
 Tests for:
 - Session creation and management
-- Team isolation at session level
+- Channel isolation at session level
 - Session key generation
 - Session history management
 """
@@ -36,12 +36,12 @@ def session_manager():
 class TestSessionCreation:
     """Test session creation"""
 
-    def test_create_session_with_team_id(self, session_manager):
-        """Test creating session with team_id"""
+    def test_create_session_with_channel_id(self, session_manager):
+        """Test creating session with channel_id"""
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -49,92 +49,92 @@ class TestSessionCreation:
         assert session is not None
         assert session.platform == "internal"
         assert session.user_id == "user1"
-        assert session.team_id == 100
+        assert session.channel_id == 100
         assert session.api_key_id == 1
         assert session.api_key_prefix == "sk_test_"
 
-    def test_create_session_without_team_id(self, session_manager):
-        """Test creating session without team_id (Telegram bot)"""
+    def test_create_session_without_channel_id(self, session_manager):
+        """Test creating session without channel_id (Telegram bot)"""
         session = session_manager.get_or_create_session(
             platform="telegram",
             user_id="tg_user1",
-            team_id=None,
+            channel_id=None,
             api_key_id=None,
             api_key_prefix=None,
         )
 
         assert session is not None
         assert session.platform == "telegram"
-        assert session.team_id is None
+        assert session.channel_id is None
         assert session.api_key_id is None
 
 
 class TestSessionKeyGeneration:
-    """Test session key generation for team isolation"""
+    """Test session key generation for channel isolation"""
 
-    def test_session_key_format_with_team(self, session_manager):
-        """Test session key format includes team_id"""
+    def test_session_key_format_with_channel(self, session_manager):
+        """Test session key format includes channel_id"""
         key = session_manager.get_session_key(
-            platform="internal", user_id="user123", team_id=100
+            platform="internal", user_id="user123", channel_id=100
         )
 
         assert key == "internal:100:user123"
 
-    def test_session_key_format_without_team(self, session_manager):
-        """Test session key format without team_id"""
+    def test_session_key_format_without_channel(self, session_manager):
+        """Test session key format without channel_id"""
         key = session_manager.get_session_key(
-            platform="telegram", user_id="user123", team_id=None
+            platform="telegram", user_id="user123", channel_id=None
         )
 
         assert key == "telegram:user123"
 
     def test_session_key_collision_prevention(self, session_manager):
-        """Test that different teams with same user_id get different keys"""
-        key_team_1 = session_manager.get_session_key("internal", "user123", team_id=1)
-        key_team_2 = session_manager.get_session_key("internal", "user123", team_id=2)
+        """Test that different channels with same user_id get different keys"""
+        key_channel_1 = session_manager.get_session_key("internal", "user123", channel_id=1)
+        key_channel_2 = session_manager.get_session_key("internal", "user123", channel_id=2)
 
-        assert key_team_1 != key_team_2
-        assert key_team_1 == "internal:1:user123"
-        assert key_team_2 == "internal:2:user123"
+        assert key_channel_1 != key_channel_2
+        assert key_channel_1 == "internal:1:user123"
+        assert key_channel_2 == "internal:2:user123"
 
 
 class TestSessionIsolation:
-    """Test team isolation at session level"""
+    """Test channel isolation at session level"""
 
-    def test_different_teams_cannot_share_sessions(self, session_manager):
-        """Test that sessions are isolated by team_id"""
-        # Team 1 creates session for user123
-        session_team_1 = session_manager.get_or_create_session(
+    def test_different_channels_cannot_share_sessions(self, session_manager):
+        """Test that sessions are isolated by channel_id"""
+        # Channel 1 creates session for user123
+        session_channel_1 = session_manager.get_or_create_session(
             platform="internal",
             user_id="user123",
-            team_id=1,
+            channel_id=1,
             api_key_id=10,
-            api_key_prefix="sk_team1_",
+            api_key_prefix="sk_channel1_",
         )
 
-        # Team 2 creates session for same user123
-        session_team_2 = session_manager.get_or_create_session(
+        # Channel 2 creates session for same user123
+        session_channel_2 = session_manager.get_or_create_session(
             platform="internal",
             user_id="user123",
-            team_id=2,
+            channel_id=2,
             api_key_id=20,
-            api_key_prefix="sk_team2_",
+            api_key_prefix="sk_channel2_",
         )
 
         # Sessions must be different
-        assert session_team_1.session_id != session_team_2.session_id
-        assert session_team_1.team_id == 1
-        assert session_team_2.team_id == 2
-        assert session_team_1.api_key_id == 10
-        assert session_team_2.api_key_id == 20
+        assert session_channel_1.session_id != session_channel_2.session_id
+        assert session_channel_1.channel_id == 1
+        assert session_channel_2.channel_id == 2
+        assert session_channel_1.api_key_id == 10
+        assert session_channel_2.api_key_id == 20
 
-    def test_get_sessions_by_team(self, session_manager):
-        """Test filtering sessions by team_id"""
-        # Create sessions for team 100
+    def test_get_sessions_by_channel(self, session_manager):
+        """Test filtering sessions by channel_id"""
+        # Create sessions for channel 100
         session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_t100_",
         )
@@ -142,30 +142,30 @@ class TestSessionIsolation:
         session_manager.get_or_create_session(
             platform="internal",
             user_id="user2",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_t100_",
         )
 
-        # Create session for team 200
+        # Create session for channel 200
         session_manager.get_or_create_session(
             platform="internal",
             user_id="user3",
-            team_id=200,
+            channel_id=200,
             api_key_id=2,
             api_key_prefix="sk_t200_",
         )
 
-        # Get sessions for team 100
-        team_100_sessions = session_manager.get_sessions_by_team(100)
-        assert len(team_100_sessions) == 2
-        for session in team_100_sessions:
-            assert session.team_id == 100
+        # Get sessions for channel 100
+        channel_100_sessions = session_manager.get_sessions_by_channel(100)
+        assert len(channel_100_sessions) == 2
+        for session in channel_100_sessions:
+            assert session.channel_id == 100
 
-        # Get sessions for team 200
-        team_200_sessions = session_manager.get_sessions_by_team(200)
-        assert len(team_200_sessions) == 1
-        assert team_200_sessions[0].team_id == 200
+        # Get sessions for channel 200
+        channel_200_sessions = session_manager.get_sessions_by_channel(200)
+        assert len(channel_200_sessions) == 1
+        assert channel_200_sessions[0].channel_id == 200
 
 
 class TestSessionRetrieval:
@@ -177,16 +177,16 @@ class TestSessionRetrieval:
         session1 = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
 
-        # Retrieve same session (same user, platform, team)
+        # Retrieve same session (same user, platform, channel)
         session2 = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -200,7 +200,7 @@ class TestSessionRetrieval:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -219,20 +219,20 @@ class TestSessionRetrieval:
 class TestSessionDeletion:
     """Test session deletion"""
 
-    def test_delete_session_with_team_id(self, session_manager):
-        """Test deleting session with team_id"""
+    def test_delete_session_with_channel_id(self, session_manager):
+        """Test deleting session with channel_id"""
         # Create session
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
 
         # Delete session
         success = session_manager.delete_session(
-            platform="internal", user_id="user1", team_id=100
+            platform="internal", user_id="user1", channel_id=100
         )
 
         assert success is True
@@ -241,20 +241,20 @@ class TestSessionDeletion:
         retrieved = session_manager.get_session_by_id(session.session_id)
         assert retrieved is None
 
-    def test_delete_session_without_team_id(self, session_manager):
-        """Test deleting session without team_id (Telegram)"""
+    def test_delete_session_without_channel_id(self, session_manager):
+        """Test deleting session without channel_id (Telegram)"""
         # Create session
         session_manager.get_or_create_session(
             platform="telegram",
             user_id="tg_user",
-            team_id=None,
+            channel_id=None,
             api_key_id=None,
             api_key_prefix=None,
         )
 
         # Delete session
         success = session_manager.delete_session(
-            platform="telegram", user_id="tg_user", team_id=None
+            platform="telegram", user_id="tg_user", channel_id=None
         )
 
         assert success is True
@@ -268,7 +268,7 @@ class TestSessionHistory:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -290,7 +290,7 @@ class TestSessionHistory:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -309,7 +309,7 @@ class TestSessionHistory:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -332,7 +332,7 @@ class TestSessionExpiration:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -345,7 +345,7 @@ class TestSessionExpiration:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
@@ -368,31 +368,31 @@ class TestChatSession:
             platform_config={"type": "private", "model": "gpt-4"},
             user_id="user1",
             current_model="gpt-4",
-            team_id=100,
+            channel_id=100,
             api_key_id=1,
             api_key_prefix="sk_test_",
         )
 
         assert session.session_id == "test_123"
         assert session.platform == "internal"
-        assert session.team_id == 100
+        assert session.channel_id == 100
         assert session.api_key_id == 1
 
-    def test_session_model_without_team(self):
-        """Test ChatSession without team (Telegram bot)"""
+    def test_session_model_without_channel(self):
+        """Test ChatSession without channel (Telegram bot)"""
         session = ChatSession(
             session_id="tg_123",
             platform="telegram",
             platform_config={"type": "private", "model": "gemini-2.0-flash"},
             user_id="tg_user",
             current_model="gemini-2.0-flash",
-            team_id=None,
+            channel_id=None,
             api_key_id=None,
             api_key_prefix=None,
         )
 
         assert session.platform == "telegram"
-        assert session.team_id is None
+        assert session.channel_id is None
         assert session.api_key_id is None
 
     def test_session_get_uptime_seconds(self):
@@ -499,7 +499,7 @@ class TestSessionCleaning:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test"
         )
@@ -514,7 +514,7 @@ class TestSessionCleaning:
         assert count == 1
 
         # Session should be gone
-        result = session_manager.get_session("internal", "user1", team_id=1)
+        result = session_manager.get_session("internal", "user1", channel_id=1)
         assert result is None
 
     def test_clear_old_sessions_keeps_active(self, session_manager):
@@ -523,7 +523,7 @@ class TestSessionCleaning:
         session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test"
         )
@@ -535,7 +535,7 @@ class TestSessionCleaning:
         assert count == 0
 
         # Session should still exist
-        result = session_manager.get_session("internal", "user1", team_id=1)
+        result = session_manager.get_session("internal", "user1", channel_id=1)
         assert result is not None
 
 
@@ -549,7 +549,7 @@ class TestSessionQueries:
             platform="telegram", user_id="user1"
         )
         session_manager.get_or_create_session(
-            platform="internal", user_id="user2", team_id=1, api_key_id=1, api_key_prefix="ak_test"
+            platform="internal", user_id="user2", channel_id=1, api_key_id=1, api_key_prefix="ak_test"
         )
 
         # Get all sessions
@@ -566,7 +566,7 @@ class TestSessionQueries:
             platform="telegram", user_id="user2"
         )
         session_manager.get_or_create_session(
-            platform="internal", user_id="user3", team_id=1, api_key_id=1, api_key_prefix="ak_test"
+            platform="internal", user_id="user3", channel_id=1, api_key_id=1, api_key_prefix="ak_test"
         )
 
         # Get telegram sessions only
@@ -597,7 +597,7 @@ class TestSessionQueries:
             platform="telegram", user_id="user1"
         )
         session_manager.get_or_create_session(
-            platform="internal", user_id="user2", team_id=1, api_key_id=1, api_key_prefix="ak_test"
+            platform="internal", user_id="user2", channel_id=1, api_key_id=1, api_key_prefix="ak_test"
         )
 
         telegram_count = session_manager.get_session_count(platform="telegram")
@@ -626,26 +626,26 @@ class TestSessionQueries:
         active_count = session_manager.get_active_session_count(minutes=5)
         assert active_count == 0
 
-    def test_get_session_count_by_team(self, session_manager):
-        """Test getting session count for a specific team"""
-        # Create sessions for different teams
+    def test_get_session_count_by_channel(self, session_manager):
+        """Test getting session count for a specific channel"""
+        # Create sessions for different channels
         session_manager.get_or_create_session(
-            platform="internal", user_id="user1", team_id=1, api_key_id=1, api_key_prefix="ak_test"
+            platform="internal", user_id="user1", channel_id=1, api_key_id=1, api_key_prefix="ak_test"
         )
         session_manager.get_or_create_session(
-            platform="internal", user_id="user2", team_id=1, api_key_id=1, api_key_prefix="ak_test"
+            platform="internal", user_id="user2", channel_id=1, api_key_id=1, api_key_prefix="ak_test"
         )
         session_manager.get_or_create_session(
-            platform="internal", user_id="user3", team_id=2, api_key_id=2, api_key_prefix="ak_other"
+            platform="internal", user_id="user3", channel_id=2, api_key_id=2, api_key_prefix="ak_other"
         )
 
-        # Count for team 1
-        team1_count = session_manager.get_session_count_by_team(team_id=1)
-        assert team1_count == 2
+        # Count for channel 1
+        channel1_count = session_manager.get_session_count_by_channel(channel_id=1)
+        assert channel1_count == 2
 
-        # Count for team 2
-        team2_count = session_manager.get_session_count_by_team(team_id=2)
-        assert team2_count == 1
+        # Count for channel 2
+        channel2_count = session_manager.get_session_count_by_channel(channel_id=2)
+        assert channel2_count == 1
 
 
 class TestAPIKeyOwnership:
@@ -657,7 +657,7 @@ class TestAPIKeyOwnership:
         session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_first"
         )
@@ -667,7 +667,7 @@ class TestAPIKeyOwnership:
             session_manager.get_or_create_session(
                 platform="internal",
                 user_id="user1",
-                team_id=1,
+                channel_id=1,
                 api_key_id=2,
                 api_key_prefix="ak_second"
             )
@@ -690,7 +690,7 @@ class TestDatabaseErrorHandling:
         session = session_manager.get_or_create_session(
             platform="internal",
             user_id="user1",
-            team_id=1,
+            channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test"
         )
@@ -705,12 +705,12 @@ class TestSessionReturnNone:
 
     def test_get_session_returns_none_when_not_found(self, session_manager):
         """Test that get_session returns None for non-existent session"""
-        result = session_manager.get_session("internal", "nonexistent_user", team_id=1)
+        result = session_manager.get_session("internal", "nonexistent_user", channel_id=1)
         assert result is None
 
     def test_delete_session_returns_false_when_not_found(self, session_manager):
         """Test that delete_session returns False for non-existent session"""
-        result = session_manager.delete_session("internal", "nonexistent_user", team_id=1)
+        result = session_manager.delete_session("internal", "nonexistent_user", channel_id=1)
         assert result is False
 
 

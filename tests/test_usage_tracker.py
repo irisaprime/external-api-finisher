@@ -4,7 +4,7 @@ Tests for usage tracking service
 Tests usage logging, quota checking, and usage statistics:
 - Usage log creation
 - Quota enforcement (daily and monthly)
-- Team and API key usage statistics
+- Channel and API key usage statistics
 - Recent usage retrieval
 """
 
@@ -12,7 +12,7 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, Mock, patch
 
-from app.models.database import APIKey, Team, UsageLog
+from app.models.database import APIKey, Channel, UsageLog
 from app.services.usage_tracker import UsageTracker
 
 
@@ -23,40 +23,40 @@ def mock_db():
 
 
 @pytest.fixture
-def mock_team():
-    """Mock team object"""
-    team = Mock(spec=Team)
-    team.id = 1
-    team.display_name = "Test Team"
-    team.platform_name = "test_platform"
-    team.daily_quota = 1000
-    team.monthly_quota = 20000
-    team.is_active = True
-    return team
+def mock_channel():
+    """Mock channel object"""
+    channel = Mock(spec=Channel)
+    channel.id = 1
+    channel.title = "Test Channel"
+    channel.channel_id = "test_platform"
+    channel.daily_quota = 1000
+    channel.monthly_quota = 20000
+    channel.is_active = True
+    return channel
 
 
 @pytest.fixture
-def mock_api_key(mock_team):
+def mock_api_key(mock_channel):
     """Mock API key object"""
     key = Mock(spec=APIKey)
     key.id = 1
     key.key_prefix = "sk_test_"
-    key.team_id = mock_team.id
-    key.team = mock_team
-    key.daily_quota = None  # Use team quota
-    key.monthly_quota = None  # Use team quota
+    key.channel_id = mock_channel.id
+    key.channel = mock_channel
+    key.daily_quota = None  # Use channel quota
+    key.monthly_quota = None  # Use channel quota
     key.is_active = True
     return key
 
 
 @pytest.fixture
-def mock_api_key_with_quota(mock_team):
+def mock_api_key_with_quota(mock_channel):
     """Mock API key with custom quota"""
     key = Mock(spec=APIKey)
     key.id = 2
     key.key_prefix = "sk_custom_"
-    key.team_id = mock_team.id
-    key.team = mock_team
+    key.channel_id = mock_channel.id
+    key.channel = mock_channel
     key.daily_quota = 500  # Custom daily quota
     key.monthly_quota = 10000  # Custom monthly quota
     key.is_active = True
@@ -74,7 +74,7 @@ class TestLogUsage:
         result = UsageTracker.log_usage(
             db=mock_db,
             api_key_id=1,
-            team_id=100,
+            channel_id=100,
             session_id="session_abc123",
             platform="telegram",
             model_used="openai/gpt-4.1",
@@ -92,7 +92,7 @@ class TestLogUsage:
         added_log = mock_db.add.call_args[0][0]
         assert isinstance(added_log, UsageLog)
         assert added_log.api_key_id == 1
-        assert added_log.team_id == 100
+        assert added_log.channel_id == 100
         assert added_log.session_id == "session_abc123"
         assert added_log.platform == "telegram"
         assert added_log.model_used == "GPT-4.1"  # Friendly name
@@ -110,7 +110,7 @@ class TestLogUsage:
         result = UsageTracker.log_usage(
             db=mock_db,
             api_key_id=2,
-            team_id=101,
+            channel_id=101,
             session_id="session_xyz789",
             platform="internal",
             model_used="anthropic/claude-sonnet-4-5",
@@ -133,7 +133,7 @@ class TestLogUsage:
         result = UsageTracker.log_usage(
             db=mock_db,
             api_key_id=3,
-            team_id=102,
+            channel_id=102,
             session_id="session_min",
             platform="telegram",
             model_used="google/gemini-2.0-flash-001",
@@ -151,14 +151,14 @@ class TestLogUsage:
 class TestCheckQuota:
     """Tests for quota checking"""
 
-    def test_check_daily_quota_unlimited(self, mock_db, mock_team):
+    def test_check_daily_quota_unlimited(self, mock_db, mock_channel):
         """Test daily quota when unlimited"""
-        # Team has no daily quota
-        mock_team.daily_quota = None
+        # Channel has no daily quota
+        mock_channel.daily_quota = None
 
         api_key = Mock(spec=APIKey)
         api_key.daily_quota = None
-        api_key.team = mock_team
+        api_key.channel = mock_channel
 
         result = UsageTracker.check_quota(mock_db, api_key, period="daily")
 
@@ -180,8 +180,8 @@ class TestCheckQuota:
 
         assert result["allowed"] is True
         assert result["current_usage"] == 500
-        assert result["quota_limit"] == 1000  # Team quota
-        assert result["quota_source"] == "team"
+        assert result["quota_limit"] == 1000  # Channel quota
+        assert result["quota_source"] == "channel"
         assert result["reset_time"] is not None
 
     def test_check_daily_quota_exceeded(self, mock_db, mock_api_key):
@@ -210,7 +210,7 @@ class TestCheckQuota:
 
         assert result["allowed"] is True
         assert result["current_usage"] == 100
-        assert result["quota_limit"] == 500  # API key quota, not team quota
+        assert result["quota_limit"] == 500  # API key quota, not channel quota
         assert result["quota_source"] == "api_key"
 
     def test_check_monthly_quota_allowed(self, mock_db, mock_api_key):
@@ -225,8 +225,8 @@ class TestCheckQuota:
 
         assert result["allowed"] is True
         assert result["current_usage"] == 10000
-        assert result["quota_limit"] == 20000  # Team quota
-        assert result["quota_source"] == "team"
+        assert result["quota_limit"] == 20000  # Channel quota
+        assert result["quota_source"] == "channel"
 
     def test_check_monthly_quota_exceeded(self, mock_db, mock_api_key):
         """Test monthly quota when exceeded"""
@@ -274,11 +274,11 @@ class TestCheckQuota:
         assert "yearly" in str(exc_info.value)
 
 
-class TestTeamUsageStats:
-    """Tests for team usage statistics"""
+class TestChannelUsageStats:
+    """Tests for channel usage statistics"""
 
-    def test_get_team_usage_stats_basic(self, mock_db):
-        """Test getting basic team usage stats"""
+    def test_get_channel_usage_stats_basic(self, mock_db):
+        """Test getting basic channel usage stats"""
         # Mock query chain
         mock_query = MagicMock()
         mock_db.query.return_value = mock_query
@@ -291,9 +291,9 @@ class TestTeamUsageStats:
         mock_query.limit.return_value = mock_query
         mock_query.all.return_value = [("GPT-4.1", 50), ("Claude Sonnet 4", 30)]
 
-        result = UsageTracker.get_team_usage_stats(mock_db, team_id=1)
+        result = UsageTracker.get_channel_usage_stats(mock_db, channel_id=1)
 
-        assert result["team_id"] == 1
+        assert result["channel_id"] == 1
         assert "period" in result
         assert "requests" in result
         assert "tokens" in result
@@ -301,8 +301,8 @@ class TestTeamUsageStats:
         assert "performance" in result
         assert "models" in result
 
-    def test_get_team_usage_stats_with_dates(self, mock_db):
-        """Test getting team stats with custom date range"""
+    def test_get_channel_usage_stats_with_dates(self, mock_db):
+        """Test getting channel stats with custom date range"""
         start_date = datetime(2025, 1, 1)
         end_date = datetime(2025, 1, 31)
 
@@ -316,14 +316,14 @@ class TestTeamUsageStats:
         mock_query.limit.return_value = mock_query
         mock_query.all.return_value = []
 
-        result = UsageTracker.get_team_usage_stats(
-            mock_db, team_id=1, start_date=start_date, end_date=end_date
+        result = UsageTracker.get_channel_usage_stats(
+            mock_db, channel_id=1, start_date=start_date, end_date=end_date
         )
 
         assert result["period"]["start"] == start_date.isoformat()
         assert result["period"]["end"] == end_date.isoformat()
 
-    def test_get_team_usage_stats_success_rate(self, mock_db):
+    def test_get_channel_usage_stats_success_rate(self, mock_db):
         """Test success rate calculation"""
         # Mock query to return different values for total and successful requests
         call_count = 0
@@ -347,14 +347,14 @@ class TestTeamUsageStats:
         mock_query.limit.return_value = mock_query
         mock_query.all.return_value = []
 
-        result = UsageTracker.get_team_usage_stats(mock_db, team_id=1)
+        result = UsageTracker.get_channel_usage_stats(mock_db, channel_id=1)
 
         assert result["requests"]["total"] == 100
         assert result["requests"]["successful"] == 80
         assert result["requests"]["failed"] == 20
         assert result["requests"]["success_rate"] == 80.0
 
-    def test_get_team_usage_stats_zero_requests(self, mock_db):
+    def test_get_channel_usage_stats_zero_requests(self, mock_db):
         """Test stats with zero requests"""
         # Mock query to return 0 for all counts
         mock_query = MagicMock()
@@ -366,7 +366,7 @@ class TestTeamUsageStats:
         mock_query.limit.return_value = mock_query
         mock_query.all.return_value = []
 
-        result = UsageTracker.get_team_usage_stats(mock_db, team_id=1)
+        result = UsageTracker.get_channel_usage_stats(mock_db, channel_id=1)
 
         assert result["requests"]["total"] == 0
         assert result["requests"]["successful"] == 0
@@ -430,7 +430,7 @@ class TestRecentUsage:
     """Tests for recent usage retrieval"""
 
     def test_get_recent_usage_all(self, mock_db):
-        """Test getting recent usage for all teams"""
+        """Test getting recent usage for all channels"""
         # Mock query chain
         mock_query = MagicMock()
         mock_db.query.return_value = mock_query
@@ -440,12 +440,12 @@ class TestRecentUsage:
 
         result = UsageTracker.get_recent_usage(mock_db)
 
-        # Verify query was not filtered by team
+        # Verify query was not filtered by channel
         mock_query.filter.assert_not_called()
         mock_query.limit.assert_called_once_with(100)
 
-    def test_get_recent_usage_filtered_by_team(self, mock_db):
-        """Test getting recent usage filtered by team"""
+    def test_get_recent_usage_filtered_by_channel(self, mock_db):
+        """Test getting recent usage filtered by channel"""
         # Mock query chain
         mock_query = MagicMock()
         mock_db.query.return_value = mock_query
@@ -454,9 +454,9 @@ class TestRecentUsage:
         mock_query.limit.return_value = mock_query
         mock_query.all.return_value = []
 
-        result = UsageTracker.get_recent_usage(mock_db, team_id=1)
+        result = UsageTracker.get_recent_usage(mock_db, channel_id=1)
 
-        # Verify query was filtered by team
+        # Verify query was filtered by channel
         mock_query.filter.assert_called_once()
         mock_query.limit.assert_called_once_with(100)
 
@@ -478,9 +478,9 @@ class TestRecentUsage:
         """Test getting recent usage with actual results"""
         # Create mock usage logs
         mock_logs = [
-            Mock(spec=UsageLog, id=1, api_key_id=1, team_id=1, model_used="GPT-4.1"),
-            Mock(spec=UsageLog, id=2, api_key_id=1, team_id=1, model_used="Claude Sonnet 4"),
-            Mock(spec=UsageLog, id=3, api_key_id=2, team_id=2, model_used="Gemini 2.0 Flash"),
+            Mock(spec=UsageLog, id=1, api_key_id=1, channel_id=1, model_used="GPT-4.1"),
+            Mock(spec=UsageLog, id=2, api_key_id=1, channel_id=1, model_used="Claude Sonnet 4"),
+            Mock(spec=UsageLog, id=3, api_key_id=2, channel_id=2, model_used="Gemini 2.0 Flash"),
         ]
 
         # Mock query chain
