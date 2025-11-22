@@ -88,7 +88,7 @@ class ChannelCreate(BaseModel):
 
     title: Optional[str] = Field(
         None,
-        description="Human-friendly display name (supports Persian/Farsi). Defaults to platform_name if not provided.",
+        description="Human-friendly display name (supports Persian/Farsi). Defaults to channel_id if not provided.",
         examples=["تیم هوش مصنوعی داخلی", "Internal BI Team", "پلتفرم بازاریابی"],
     )
     channel_id: str = Field(

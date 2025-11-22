@@ -65,7 +65,7 @@ class TestRequireAdminAccess:
         assert result == valid_key
 
 
-class TestRequireTeamAccess:
+class TestRequireChannelAccess:
     """Tests for require_channel_access dependency"""
 
     def test_channel_access_no_authorization(self):

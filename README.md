@@ -1,6 +1,6 @@
 # Arash External API
 
-**Multi-platform AI chatbot service with team-based access control, supporting Telegram and REST API integrations.**
+**Multi-platform AI chatbot service with channel-based access control, supporting Telegram and REST API integrations.**
 
 Powered by multiple AI models (GPT, Claude, Gemini, Grok, DeepSeek) with intelligent session management, rate limiting, and usage tracking.
 
@@ -24,7 +24,7 @@ graph TB
 
     subgraph "External Services"
         AI[AI Service<br/>Multi-Model Router]
-        DB[(PostgreSQL<br/>Teams & Usage)]
+        DB[(PostgreSQL<br/>Channels & Usage)]
     end
 
     ENTRY --> APP
@@ -57,9 +57,9 @@ sequenceDiagram
 
     Client->>FastAPI: POST /v1/chat<br/>{user_id, text, conversation_id?}
     FastAPI->>Auth: Validate API Key
-    Auth->>Database: Check team & quotas
-    Database-->>Auth: Team config
-    Auth-->>FastAPI: Authorized (team_id, platform)
+    Auth->>Database: Check channel & quotas
+    Database-->>Auth: Channel config
+    Auth-->>FastAPI: Authorized (channel_id, platform)
 
     FastAPI->>Session Manager: Get/Create session
     Session Manager-->>FastAPI: Session context
