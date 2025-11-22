@@ -7,7 +7,7 @@ TWO-PATH AUTHENTICATION SYSTEM:
    - Authentication: Environment variable SUPER_ADMIN_API_KEYS
    - NOT stored in database
    - Can access: ALL /v1/admin/* endpoints
-   - Purpose: Internal team managing the service infrastructure
+   - Purpose: Infrastructure administrators managing the service
    - Completely separate from client database
 
 2. CHANNEL API KEYS (Application Level):

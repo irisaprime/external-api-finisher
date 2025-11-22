@@ -210,7 +210,7 @@ class TestProcessMessageSimple:
     async def test_process_simple_logs_success(
         self, mock_db, mock_tracker, mock_cmd_proc, mock_session_mgr, processor, mock_session
     ):
-        """Test that successful requests are logged for authenticated teams"""
+        """Test that successful requests are logged for authenticated channels"""
         mock_session_mgr.get_or_create_session.return_value = mock_session
         mock_session_mgr.check_rate_limit.return_value = True
         mock_cmd_proc.is_command.return_value = False

@@ -68,8 +68,6 @@ def mock_super_admin_key():
 def mock_api_key_user():
     """
     Mock user API key (regular channel user)
-
-    This is an alias for mock_api_key_team for backward compatibility
     """
     key = Mock()
     key.id = 1

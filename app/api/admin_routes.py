@@ -325,7 +325,7 @@ class ChannelCreateResponse(BaseModel):
 class UsageStatsResponse(BaseModel):
     """Response model for usage statistics (channel-based only, no api_key_id)
 
-    Note: team_name contains the channel's title (supports Persian/Farsi)
+    Note: channel_name contains the channel's title (supports Persian/Farsi)
     """
 
     model_config = ConfigDict(
@@ -354,10 +354,10 @@ class UsageStatsResponse(BaseModel):
     )
 
     channel_id: Optional[int] = Field(None, examples=[1])
-    team_name: Optional[str] = Field(
+    channel_name: Optional[str] = Field(
         None,
         description="Channel display name (supports Persian/Farsi)",
-        examples=["تیم هوش مصنوعی داخلی", "Internal BI Team"],
+        examples=["تیم هوش مصنوعی داخلی", "Internal BI Channel"],
     )
     period: dict
     requests: dict
@@ -903,8 +903,8 @@ class ChannelsListResponse(BaseModel):
                         }
                     ],
                     "total_report": {
-                        "total_teams": 5,
-                        "active_teams": 4,
+                        "total_channels": 5,
+                        "active_channels": 4,
                         "total_requests": 75000,
                         "total_successful": 74250,
                         "total_failed": 750,
@@ -966,8 +966,8 @@ class ChannelsListResponse(BaseModel):
                                     }
                                 ],
                                 "total_report": {
-                                    "total_teams": 5,
-                                    "active_teams": 4,
+                                    "total_channels": 5,
+                                    "active_channels": 4,
                                     "total_requests": 75000,
                                     "total_cost": 75.50
                                 }
@@ -1141,8 +1141,8 @@ async def get_channels(
     total_report = None
     if totally:
         total_report = {
-            "total_teams": len(responses),
-            "active_teams": sum(1 for r in responses if r.is_active),
+            "total_channels": len(responses),
+            "active_channels": sum(1 for r in responses if r.is_active),
             "total_requests": total_requests,
             "total_successful": total_successful,
             "total_failed": total_failed,
@@ -1195,7 +1195,7 @@ async def get_channels(
                         "platform_exists": {
                             "summary": "Platform name already exists (when changing platform_name)",
                             "value": {
-                                "detail": "Platform name 'Internal-BI-v2' is already in use by another team"
+                                "detail": "Platform name 'Internal-BI-v2' is already in use by another channel"
                             }
                         },
                         "invalid_quota": {
