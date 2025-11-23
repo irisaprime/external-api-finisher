@@ -1,18 +1,18 @@
 """
-Tests for Platform Manager service
+Tests for Channel Manager service
 """
 
 import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from app.core.constants import Platform, PlatformType
-from app.services.channel_manager import ChannelConfig, PlatformManager, channel_manager
+from app.services.channel_manager import ChannelConfig, ChannelManager, channel_manager
 
 
 @pytest.fixture
 def manager():
-    """Create a fresh platform manager instance for testing"""
-    return PlatformManager()
+    """Create a fresh channel manager instance for testing"""
+    return ChannelManager()
 
 
 class TestChannelConfig:
@@ -78,8 +78,8 @@ class TestChannelConfig:
         assert "api_key" not in result
 
 
-class TestPlatformManager:
-    """Tests for PlatformManager"""
+class TestChannelManager:
+    """Tests for ChannelManager"""
 
     def test_manager_initialization(self, manager):
         """Test manager is initialized with configs"""
@@ -367,7 +367,7 @@ class TestGlobalInstance:
     def test_global_instance_exists(self):
         """Test that global instance is created"""
         assert channel_manager is not None
-        assert isinstance(channel_manager, PlatformManager)
+        assert isinstance(channel_manager, ChannelManager)
 
     def test_global_instance_has_configs(self):
         """Test global instance has platform configs loaded"""

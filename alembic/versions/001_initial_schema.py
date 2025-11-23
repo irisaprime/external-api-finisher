@@ -89,6 +89,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_usage_logs_id'), 'usage_logs', ['id'], unique=False)
     op.create_index(op.f('ix_usage_logs_api_key_id'), 'usage_logs', ['api_key_id'], unique=False)
     op.create_index(op.f('ix_usage_logs_channel_id'), 'usage_logs', ['channel_id'], unique=False)
+    op.create_index(op.f('ix_usage_logs_channel_identifier'), 'usage_logs', ['channel_identifier'], unique=False)
     op.create_index(op.f('ix_usage_logs_session_id'), 'usage_logs', ['session_id'], unique=False)
     op.create_index(op.f('ix_usage_logs_timestamp'), 'usage_logs', ['timestamp'], unique=False)
 
@@ -128,6 +129,7 @@ def downgrade() -> None:
 
     op.drop_index(op.f('ix_usage_logs_timestamp'), table_name='usage_logs')
     op.drop_index(op.f('ix_usage_logs_session_id'), table_name='usage_logs')
+    op.drop_index(op.f('ix_usage_logs_channel_identifier'), table_name='usage_logs')
     op.drop_index(op.f('ix_usage_logs_channel_id'), table_name='usage_logs')
     op.drop_index(op.f('ix_usage_logs_api_key_id'), table_name='usage_logs')
     op.drop_index(op.f('ix_usage_logs_id'), table_name='usage_logs')
