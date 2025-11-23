@@ -320,12 +320,12 @@ async def chat(
         api_key_prefix = auth.key_prefix
 
         logger.info(
-            f"[CHANNEL] chat_request platform={platform_name} channel_id={channel_id} user_id={message.user_id}"
+            f"[CHANNEL] chat_request channel={channel_identifier} channel_id={channel_id} user_id={message.user_id}"
         )
 
     # Process message (handles both modes)
     return await message_processor.process_message_simple(
-        channel_identifier=platform_name,
+        channel_identifier=channel_identifier,
         channel_id=channel_id,
         api_key_id=api_key_id,
         api_key_prefix=api_key_prefix,
@@ -511,7 +511,7 @@ async def get_commands(
     - Channel traffic: Logged as [CHANNEL]
     - Unauthorized traffic: Blocked with 401/403
     """
-    # Determine platform based on authentication type
+    # Determine channel based on authentication type
     if auth == "telegram":
         # TELEGRAM MODE: Telegram bot service
         channel_identifier = "telegram"
@@ -519,10 +519,10 @@ async def get_commands(
     else:
         # CHANNEL MODE: Authenticated external channel
         channel_identifier = auth.channel.channel_id
-        logger.info(f"[CHANNEL] commands_request platform={platform_name} channel_id={auth.channel_id}")
+        logger.info(f"[CHANNEL] commands_request channel={channel_identifier} channel_id={auth.channel_id}")
 
-    # Get allowed commands for this platform
-    allowed_commands = channel_manager.get_allowed_commands(platform_name)
+    # Get allowed commands for this channel
+    allowed_commands = channel_manager.get_allowed_commands(channel_identifier)
 
     # Build command list with descriptions
     commands_list = []
@@ -532,4 +532,4 @@ async def get_commands(
                 {"command": cmd, "description": COMMAND_DESCRIPTIONS[cmd], "usage": f"/{cmd}"}
             )
 
-    return {"success": True, "platform": platform_name, "commands": commands_list}
+    return {"success": True, "platform": channel_identifier, "commands": commands_list}

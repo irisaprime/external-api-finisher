@@ -1,5 +1,5 @@
 """
-Message processor with platform-aware logic
+Message processor with channel-aware logic
 """
 
 import logging
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class MessageProcessor:
-    """Processes messages with platform-aware logic"""
+    """Processes messages with channel-aware logic"""
 
     async def process_message(self, message: IncomingMessage) -> BotResponse:
         """Process incoming message with channel isolation"""
@@ -114,7 +114,7 @@ class MessageProcessor:
             # Get or create session (loads message history from DB)
             try:
                 session = session_manager.get_or_create_session(
-                    channel_identifier=channel_identifier_name,
+                    channel_identifier=channel_identifier,
                     user_id=user_id,
                     channel_id=channel_id,
                     api_key_id=api_key_id,
@@ -129,7 +129,7 @@ class MessageProcessor:
                 )
 
             # Check rate limit
-            if not session_manager.check_rate_limit(platform_name, user_id):
+            if not session_manager.check_rate_limit(channel_identifier, user_id):
                 rate_limit = session.channel_config.get("rate_limit", 60)
 
                 # Log rate limit failure (only for authenticated channels)
@@ -140,7 +140,7 @@ class MessageProcessor:
                         api_key_id=api_key_id,
                         channel_id=channel_id,
                         session_id=session.session_id,
-                        channel_identifier=channel_identifier_name,
+                        channel_identifier=channel_identifier,
                         model_used=session.current_model,
                         success=False,
                         response_time_ms=response_time_ms,
@@ -173,7 +173,7 @@ class MessageProcessor:
             session.total_message_count = (
                 db.query(func.count(Message.id))
                 .filter(
-                    Message.channel_identifier == platform_name,
+                    Message.channel_identifier == channel_identifier,
                     Message.user_id == user_id,
                     Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                 )
@@ -189,7 +189,7 @@ class MessageProcessor:
                     api_key_id=api_key_id,
                     channel_id=channel_id,
                     session_id=session.session_id,
-                    channel_identifier=channel_identifier_name,
+                    channel_identifier=channel_identifier,
                     model_used=session.current_model,
                     success=True,
                     response_time_ms=response_time_ms,
@@ -211,7 +211,7 @@ class MessageProcessor:
                 response_time_ms = int((time.time() - start_time) * 1000)
                 try:
                     # Get session for model info
-                    session = session_manager.get_session(platform_name, user_id, channel_id)
+                    session = session_manager.get_session(channel_identifier, user_id, channel_id)
                     model_used = session.current_model if session else "unknown"
                     session_id = session.session_id if session else "unknown"
 
@@ -220,7 +220,7 @@ class MessageProcessor:
                         api_key_id=api_key_id,
                         channel_id=channel_id,
                         session_id=session_id,
-                        channel_identifier=channel_identifier_name,
+                        channel_identifier=channel_identifier,
                         model_used=model_used,
                         success=False,
                         response_time_ms=response_time_ms,
@@ -250,7 +250,7 @@ class MessageProcessor:
         from app.models.database import Message
 
         try:
-            # Get max history for platform
+            # Get max history for channel
             max_history = channel_manager.get_max_history(session.channel_identifier)
 
             # Send to AI service with session's current model
@@ -295,7 +295,7 @@ class MessageProcessor:
                     db.rollback()
                     # Continue anyway - in-memory history is intact
 
-                # Trim in-memory history if exceeds platform limit
+                # Trim in-memory history if exceeds channel limit
                 if len(session.history) > max_history * 2:
                     session.history = session.history[-max_history * 2 :]
 
@@ -326,7 +326,7 @@ class MessageProcessor:
                     if att.type == MessageType.IMAGE and att.data:
                         files.append({"Data": att.data, "MIMEType": att.mime_type or "image/jpeg"})
 
-            # Get max history for platform
+            # Get max history for channel
             max_history = channel_manager.get_max_history(session.channel_identifier)
 
             # Send to AI service with session's current model
@@ -343,7 +343,7 @@ class MessageProcessor:
                 session.add_message("user", message.text or "[تصویر/پیوست]")
                 session.add_message("assistant", response["Response"])
 
-                # Trim history if exceeds platform limit
+                # Trim history if exceeds channel limit
                 if len(session.history) > max_history * 2:
                     session.history = session.history[-max_history * 2 :]
 

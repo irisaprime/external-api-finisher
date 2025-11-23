@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class SessionManager:
-    """Manages chat sessions with platform-aware configuration"""
+    """Manages chat sessions with channel-aware configuration"""
 
     def __init__(self):
         self.sessions: Dict[str, ChatSession] = {}
@@ -39,8 +39,8 @@ class SessionManager:
         - Channel-based: "Internal-BI:5:user123"
         """
         if channel_id is not None:
-            return f"{platform}:{channel_id}:{user_id}"
-        return f"{platform}:{user_id}"
+            return f"{channel_identifier}:{channel_id}:{user_id}"
+        return f"{channel_identifier}:{user_id}"
 
     def get_or_create_session(
         self,
@@ -51,10 +51,10 @@ class SessionManager:
         api_key_prefix: str | None = None,
     ) -> ChatSession:
         """
-        Get existing session or create new one with platform-specific config and channel isolation.
+        Get existing session or create new one with channel-specific config and channel isolation.
 
         Architecture:
-        - One session per user per platform/channel (no conversation_id)
+        - One session per user per channel (no conversation_id)
         - Loads total_message_count from database
         - Loads uncleared messages into history for AI context
 
@@ -84,7 +84,7 @@ class SessionManager:
                 total_count = (
                     db.query(func.count(Message.id))
                     .filter(
-                        Message.channel_identifier == platform,
+                        Message.channel_identifier == channel_identifier,
                         Message.user_id == user_id,
                         Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                     )
@@ -96,7 +96,7 @@ class SessionManager:
                 uncleared_messages = (
                     db.query(Message)
                     .filter(
-                        Message.channel_identifier == platform,
+                        Message.channel_identifier == channel_identifier,
                         Message.user_id == user_id,
                         Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                         Message.cleared_at.is_(None),  # Only uncleared messages
@@ -128,7 +128,7 @@ class SessionManager:
                 api_key_prefix=api_key_prefix,
             )
 
-            friendly_platform = get_friendly_platform_name(platform)
+            friendly_platform = get_friendly_platform_name(channel_identifier)
             masked_id = mask_session_id(self.sessions[key].session_id)
             channel_info = f" (channel: {channel_id}, key: {api_key_prefix})" if channel_id else ""
             logger.info(
@@ -155,7 +155,7 @@ class SessionManager:
         return self.sessions[key]
 
     def get_session(self, channel_identifier: str, user_id: str, channel_id: int | None = None) -> ChatSession:
-        """Get existing session by platform, user_id, and channel_id"""
+        """Get existing session by channel_identifier, user_id, and channel_id"""
         key = self.get_session_key(channel_identifier, user_id, channel_id)
         return self.sessions.get(key)
 
@@ -176,12 +176,12 @@ class SessionManager:
         return False
 
     def check_rate_limit(self, channel_identifier: str, user_id: str) -> bool:
-        """Check if user exceeded rate limit for their platform"""
+        """Check if user exceeded rate limit for their channel"""
         now = time.time()
         minute_ago = now - 60
-        rate_limit = channel_manager.get_rate_limit(platform)
+        rate_limit = channel_manager.get_rate_limit(channel_identifier)
 
-        key = f"{platform}:{user_id}"
+        key = f"{channel_identifier}:{user_id}"
 
         # Clean old entries
         self.rate_limits[key] = [t for t in self.rate_limits[key] if t > minute_ago]
@@ -199,9 +199,9 @@ class SessionManager:
         """Get remaining rate limit for user"""
         now = time.time()
         minute_ago = now - 60
-        rate_limit = channel_manager.get_rate_limit(platform)
+        rate_limit = channel_manager.get_rate_limit(channel_identifier)
 
-        key = f"{platform}:{user_id}"
+        key = f"{channel_identifier}:{user_id}"
 
         # Clean old entries
         self.rate_limits[key] = [t for t in self.rate_limits[key] if t > minute_ago]
@@ -238,15 +238,15 @@ class SessionManager:
                 del self.rate_limits[key]
 
     def get_all_sessions(self, channel_identifier: str = None) -> List[ChatSession]:
-        """Get all sessions, optionally filtered by platform"""
-        if platform:
-            return [session for session in self.sessions.values() if session.channel_identifier == platform]
+        """Get all sessions, optionally filtered by channel"""
+        if channel_identifier:
+            return [session for session in self.sessions.values() if session.channel_identifier == channel_identifier]
         return list(self.sessions.values())
 
     def get_session_count(self, channel_identifier: str = None) -> int:
         """Get count of sessions"""
-        if platform:
-            return len([s for s in self.sessions.values() if s.platform == platform])
+        if channel_identifier:
+            return len([s for s in self.sessions.values() if s.channel_identifier == channel_identifier])
         return len(self.sessions)
 
     def get_active_session_count(self, minutes: int = 5) -> int:
