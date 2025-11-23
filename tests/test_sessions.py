@@ -47,7 +47,7 @@ class TestSessionCreation:
         )
 
         assert session is not None
-        assert session.platform == "internal"
+        assert session.channel_identifier == "internal"
         assert session.user_id == "user1"
         assert session.channel_id == 100
         assert session.api_key_id == 1
@@ -64,7 +64,7 @@ class TestSessionCreation:
         )
 
         assert session is not None
-        assert session.platform == "telegram"
+        assert session.channel_identifier == "telegram"
         assert session.channel_id is None
         assert session.api_key_id is None
 
@@ -374,7 +374,7 @@ class TestChatSession:
         )
 
         assert session.session_id == "test_123"
-        assert session.platform == "internal"
+        assert session.channel_identifier == "internal"
         assert session.channel_id == 100
         assert session.api_key_id == 1
 
@@ -391,7 +391,7 @@ class TestChatSession:
             api_key_prefix=None,
         )
 
-        assert session.platform == "telegram"
+        assert session.channel_identifier == "telegram"
         assert session.channel_id is None
         assert session.api_key_id is None
 

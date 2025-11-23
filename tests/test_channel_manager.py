@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from app.core.constants import Platform, PlatformType
-from app.services.platform_manager import PlatformConfig, PlatformManager, platform_manager
+from app.services.channel_manager import ChannelConfig, PlatformManager, channel_manager
 
 
 @pytest.fixture
@@ -15,12 +15,12 @@ def manager():
     return PlatformManager()
 
 
-class TestPlatformConfig:
-    """Tests for PlatformConfig"""
+class TestChannelConfig:
+    """Tests for ChannelConfig"""
 
     def test_platform_config_initialization(self):
         """Test platform config is initialized correctly"""
-        config = PlatformConfig(
+        config = ChannelConfig(
             type=PlatformType.PUBLIC,
             model="test-model",
             available_models=["model1", "model2"],
@@ -44,7 +44,7 @@ class TestPlatformConfig:
 
     def test_platform_config_defaults(self):
         """Test platform config default values"""
-        config = PlatformConfig(type=PlatformType.PUBLIC, model="test-model")
+        config = ChannelConfig(type=PlatformType.PUBLIC, model="test-model")
 
         assert config.available_models == ["test-model"]
         assert config.commands == []
@@ -54,7 +54,7 @@ class TestPlatformConfig:
 
     def test_platform_config_dict(self):
         """Test converting platform config to dictionary"""
-        config = PlatformConfig(
+        config = ChannelConfig(
             type=PlatformType.PRIVATE,
             model="test-model",
             available_models=["model1"],
@@ -230,7 +230,7 @@ class TestPlatformManager:
 
         assert result is False
 
-    @patch("app.services.platform_manager.settings")
+    @patch("app.services.channel_manager.settings")
     def test_is_admin_telegram_admin_user(self, mock_settings, manager):
         """Test Telegram admin user check"""
         mock_settings.telegram_admin_users_set = {"12345"}
@@ -238,7 +238,7 @@ class TestPlatformManager:
         assert manager.is_admin(Platform.TELEGRAM, "12345") is True
         assert manager.is_admin(Platform.TELEGRAM, "67890") is False
 
-    @patch("app.services.platform_manager.settings")
+    @patch("app.services.channel_manager.settings")
     def test_is_admin_internal_admin_user(self, mock_settings, manager):
         """Test Internal admin user check"""
         mock_settings.internal_admin_users_set = {"admin123"}
@@ -263,7 +263,7 @@ class TestPlatformManager:
 
         assert result is False
 
-    @patch("app.services.platform_manager.get_friendly_model_name")
+    @patch("app.services.channel_manager.get_friendly_model_name")
     def test_get_available_models_friendly(self, mock_friendly, manager):
         """Test getting friendly model names"""
         mock_friendly.side_effect = lambda x: f"Friendly {x}"
@@ -274,7 +274,7 @@ class TestPlatformManager:
         assert result == ["Friendly model1", "Friendly model2"]
         assert mock_friendly.call_count == 2
 
-    @patch("app.services.platform_manager.get_friendly_model_name")
+    @patch("app.services.channel_manager.get_friendly_model_name")
     def test_get_default_model_friendly(self, mock_friendly, manager):
         """Test getting friendly default model name"""
         mock_friendly.return_value = "Friendly Model"
@@ -293,7 +293,7 @@ class TestPlatformManager:
             result = manager.resolve_model_name(technical_model, Platform.TELEGRAM)
             assert result == technical_model
 
-    @patch("app.services.platform_manager.get_technical_model_name")
+    @patch("app.services.channel_manager.get_technical_model_name")
     def test_resolve_model_name_friendly_name(self, mock_technical, manager):
         """Test resolving model name with friendly name"""
         available_models = manager.get_available_models(Platform.TELEGRAM)
@@ -305,7 +305,7 @@ class TestPlatformManager:
             assert result == available_models[0]
 
     @patch("app.core.constants.TELEGRAM_MODEL_ALIASES", {"gemini": "Gemini Flash"})
-    @patch("app.services.platform_manager.get_technical_model_name")
+    @patch("app.services.channel_manager.get_technical_model_name")
     def test_resolve_model_name_alias(self, mock_technical, manager):
         """Test resolving model name with alias"""
         available_models = manager.get_available_models(Platform.TELEGRAM)
@@ -317,7 +317,7 @@ class TestPlatformManager:
             if result:
                 assert result == available_models[0]
 
-    @patch("app.services.platform_manager.get_technical_model_name")
+    @patch("app.services.channel_manager.get_technical_model_name")
     def test_resolve_model_name_not_found(self, mock_technical, manager):
         """Test resolving model name returns None for unknown model"""
         mock_technical.return_value = "unknown/model"
@@ -354,7 +354,7 @@ class TestPlatformManager:
                 return name  # Return unchanged if not recognized
 
             with patch("app.core.constants.MODEL_ALIASES", {"testalias": friendly_name}):
-                with patch("app.services.platform_manager.get_technical_model_name", side_effect=mock_get_technical):
+                with patch("app.services.channel_manager.get_technical_model_name", side_effect=mock_get_technical):
                     result = manager.resolve_model_name("testalias", Platform.INTERNAL)
 
                     # Should resolve: alias -> friendly -> technical
@@ -362,15 +362,15 @@ class TestPlatformManager:
 
 
 class TestGlobalInstance:
-    """Tests for global platform_manager instance"""
+    """Tests for global channel_manager instance"""
 
     def test_global_instance_exists(self):
         """Test that global instance is created"""
-        assert platform_manager is not None
-        assert isinstance(platform_manager, PlatformManager)
+        assert channel_manager is not None
+        assert isinstance(channel_manager, PlatformManager)
 
     def test_global_instance_has_configs(self):
         """Test global instance has platform configs loaded"""
-        assert len(platform_manager.configs) >= 2
-        assert Platform.TELEGRAM in platform_manager.configs
-        assert Platform.INTERNAL in platform_manager.configs
+        assert len(channel_manager.configs) >= 2
+        assert Platform.TELEGRAM in channel_manager.configs
+        assert Platform.INTERNAL in channel_manager.configs

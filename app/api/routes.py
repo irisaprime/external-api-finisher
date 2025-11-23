@@ -39,7 +39,7 @@ from app.models.schemas import (
     IncomingMessage,
 )
 from app.services.message_processor import message_processor
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +306,7 @@ async def chat(
     # Determine mode based on authentication type
     if auth == "telegram":
         # TELEGRAM MODE: Telegram bot service
-        platform_name = "telegram"
+        channel_identifier = "telegram"
         channel_id = None
         api_key_id = None
         api_key_prefix = None
@@ -314,7 +314,7 @@ async def chat(
         logger.info(f"[TELEGRAM] bot_request user_id={message.user_id}")
     else:
         # CHANNEL MODE: Authenticated external channel
-        platform_name = auth.channel.channel_id
+        channel_identifier = auth.channel.channel_id
         channel_id = auth.channel_id
         api_key_id = auth.id
         api_key_prefix = auth.key_prefix
@@ -325,7 +325,7 @@ async def chat(
 
     # Process message (handles both modes)
     return await message_processor.process_message_simple(
-        platform_name=platform_name,
+        channel_identifier=platform_name,
         channel_id=channel_id,
         api_key_id=api_key_id,
         api_key_prefix=api_key_prefix,
@@ -514,15 +514,15 @@ async def get_commands(
     # Determine platform based on authentication type
     if auth == "telegram":
         # TELEGRAM MODE: Telegram bot service
-        platform_name = "telegram"
+        channel_identifier = "telegram"
         logger.info("[TELEGRAM] commands_request platform=telegram")
     else:
         # CHANNEL MODE: Authenticated external channel
-        platform_name = auth.channel.channel_id
+        channel_identifier = auth.channel.channel_id
         logger.info(f"[CHANNEL] commands_request platform={platform_name} channel_id={auth.channel_id}")
 
     # Get allowed commands for this platform
-    allowed_commands = platform_manager.get_allowed_commands(platform_name)
+    allowed_commands = channel_manager.get_allowed_commands(platform_name)
 
     # Build command list with descriptions
     commands_list = []

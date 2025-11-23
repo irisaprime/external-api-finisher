@@ -30,7 +30,7 @@ from app.api.dependencies import require_admin_access
 from app.core.name_mapping import get_friendly_model_name
 from app.models.database import APIKey, get_db_session
 from app.services.api_key_manager import APIKeyManager
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 from app.services.session_manager import session_manager
 from app.services.usage_tracker import UsageTracker
 
@@ -559,8 +559,8 @@ async def admin_dashboard(
     db = get_db_session()
 
     # Get platform configurations
-    telegram_config = platform_manager.get_config("telegram")
-    internal_config = platform_manager.get_config("internal")
+    telegram_config = channel_manager.get_config("telegram")
+    internal_config = channel_manager.get_config("internal")
 
     # Get channel name mapping for statistics
     channels = APIKeyManager.list_all_channels(db)
@@ -598,7 +598,7 @@ async def admin_dashboard(
     for session in session_manager.sessions.values():
         is_active = not session.is_expired(5)
 
-        if session.platform == "telegram":
+        if session.channel_identifier == "telegram":
             telegram_stats["sessions"] += 1
             telegram_stats["messages"] += session.total_message_count
             if is_active:

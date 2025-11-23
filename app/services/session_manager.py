@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.name_mapping import get_friendly_platform_name, mask_session_id
 from app.models.database import Message, get_db_session
 from app.models.session import ChatSession
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class SessionManager:
         self.sessions: Dict[str, ChatSession] = {}
         self.rate_limits: Dict[str, List[float]] = defaultdict(list)
 
-    def get_session_key(self, platform: str, user_id: str, channel_id: int | None = None) -> str:
+    def get_session_key(self, channel_identifier: str, user_id: str, channel_id: int | None = None) -> str:
         """
         Generate unique session key with channel isolation.
 
@@ -44,7 +44,7 @@ class SessionManager:
 
     def get_or_create_session(
         self,
-        platform: str,
+        channel_identifier: str,
         user_id: str,
         channel_id: int | None = None,
         api_key_id: int | None = None,
@@ -61,7 +61,7 @@ class SessionManager:
         SECURITY: API key isolation - each API key can only access sessions it created
         """
         # SECURITY: Include channel_id in key to prevent session collision between channels
-        key = self.get_session_key(platform, user_id, channel_id)
+        key = self.get_session_key(channel_identifier, user_id, channel_id)
 
         if key not in self.sessions:
             # Load channel if available (for config overrides)
@@ -75,7 +75,7 @@ class SessionManager:
                     logger.error(f"Error loading channel {channel_id}: {e}")
 
             # Get config with channel-specific overrides
-            config = platform_manager.get_config(platform, channel=channel)
+            config = channel_manager.get_config(channel_identifier, channel=channel)
 
             # Load message history from database
             db = get_db_session()
@@ -84,7 +84,7 @@ class SessionManager:
                 total_count = (
                     db.query(func.count(Message.id))
                     .filter(
-                        Message.platform == platform,
+                        Message.channel_identifier == platform,
                         Message.user_id == user_id,
                         Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                     )
@@ -96,7 +96,7 @@ class SessionManager:
                 uncleared_messages = (
                     db.query(Message)
                     .filter(
-                        Message.platform == platform,
+                        Message.channel_identifier == platform,
                         Message.user_id == user_id,
                         Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                         Message.cleared_at.is_(None),  # Only uncleared messages
@@ -115,13 +115,13 @@ class SessionManager:
 
             self.sessions[key] = ChatSession(
                 session_id=hashlib.md5(key.encode()).hexdigest(),
-                platform=platform,
-                platform_config=config.dict(),
+                channel_identifier=channel_identifier,
+                channel_config=config.dict(),
                 user_id=user_id,
                 current_model=config.model,
                 history=history,  # Pre-loaded from DB
                 total_message_count=total_count,  # Total messages including cleared
-                is_admin=platform_manager.is_admin(platform, user_id),
+                is_admin=channel_manager.is_admin(channel_identifier, user_id),
                 # Channel isolation - CRITICAL for security
                 channel_id=channel_id,
                 api_key_id=api_key_id,
@@ -154,9 +154,9 @@ class SessionManager:
 
         return self.sessions[key]
 
-    def get_session(self, platform: str, user_id: str, channel_id: int | None = None) -> ChatSession:
+    def get_session(self, channel_identifier: str, user_id: str, channel_id: int | None = None) -> ChatSession:
         """Get existing session by platform, user_id, and channel_id"""
-        key = self.get_session_key(platform, user_id, channel_id)
+        key = self.get_session_key(channel_identifier, user_id, channel_id)
         return self.sessions.get(key)
 
     def get_session_by_id(self, session_id: str) -> ChatSession | None:
@@ -166,20 +166,20 @@ class SessionManager:
                 return session
         return None
 
-    def delete_session(self, platform: str, user_id: str, channel_id: int | None = None) -> bool:
+    def delete_session(self, channel_identifier: str, user_id: str, channel_id: int | None = None) -> bool:
         """Delete a session (in-memory only - DB messages remain)"""
-        key = self.get_session_key(platform, user_id, channel_id)
+        key = self.get_session_key(channel_identifier, user_id, channel_id)
         if key in self.sessions:
             del self.sessions[key]
             logger.info(f"Deleted session: {key}")
             return True
         return False
 
-    def check_rate_limit(self, platform: str, user_id: str) -> bool:
+    def check_rate_limit(self, channel_identifier: str, user_id: str) -> bool:
         """Check if user exceeded rate limit for their platform"""
         now = time.time()
         minute_ago = now - 60
-        rate_limit = platform_manager.get_rate_limit(platform)
+        rate_limit = channel_manager.get_rate_limit(platform)
 
         key = f"{platform}:{user_id}"
 
@@ -195,11 +195,11 @@ class SessionManager:
         self.rate_limits[key].append(now)
         return True
 
-    def get_rate_limit_remaining(self, platform: str, user_id: str) -> int:
+    def get_rate_limit_remaining(self, channel_identifier: str, user_id: str) -> int:
         """Get remaining rate limit for user"""
         now = time.time()
         minute_ago = now - 60
-        rate_limit = platform_manager.get_rate_limit(platform)
+        rate_limit = channel_manager.get_rate_limit(platform)
 
         key = f"{platform}:{user_id}"
 
@@ -237,13 +237,13 @@ class SessionManager:
             if not self.rate_limits[key]:
                 del self.rate_limits[key]
 
-    def get_all_sessions(self, platform: str = None) -> List[ChatSession]:
+    def get_all_sessions(self, channel_identifier: str = None) -> List[ChatSession]:
         """Get all sessions, optionally filtered by platform"""
         if platform:
-            return [session for session in self.sessions.values() if session.platform == platform]
+            return [session for session in self.sessions.values() if session.channel_identifier == platform]
         return list(self.sessions.values())
 
-    def get_session_count(self, platform: str = None) -> int:
+    def get_session_count(self, channel_identifier: str = None) -> int:
         """Get count of sessions"""
         if platform:
             return len([s for s in self.sessions.values() if s.platform == platform])

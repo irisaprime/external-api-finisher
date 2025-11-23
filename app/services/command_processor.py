@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from app.core.constants import COMMAND_DESCRIPTIONS, MESSAGES_FA
 from app.core.name_mapping import get_friendly_model_name
 from app.models.session import ChatSession
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +49,9 @@ class CommandProcessor:
 
         return command, args
 
-    def can_use_command(self, command: str, platform: str) -> bool:
+    def can_use_command(self, command: str, channel_identifier: str) -> bool:
         """Check if platform can use command"""
-        allowed_commands = platform_manager.get_allowed_commands(platform)
+        allowed_commands = channel_manager.get_allowed_commands(platform)
         return command in allowed_commands
 
     async def process_command(self, session: ChatSession, text: str) -> str:
@@ -62,11 +62,11 @@ class CommandProcessor:
             return MESSAGES_FA["command_unknown"].format(command="")
 
         # Check if command is allowed for platform
-        if not self.can_use_command(command, session.platform):
-            allowed = platform_manager.get_allowed_commands(session.platform)
+        if not self.can_use_command(command, session.channel_identifier):
+            allowed = channel_manager.get_allowed_commands(session.channel_identifier)
             commands_list = "\n".join([f"• /{c}" for c in allowed])
             return MESSAGES_FA["command_not_available_platform"].format(
-                command=command, platform=session.platform.title(), commands=commands_list
+                command=command, channel_identifier=session.channel_identifier.title(), commands=commands_list
             )
 
         # Execute command
@@ -82,10 +82,10 @@ class CommandProcessor:
 
     async def handle_start(self, session: ChatSession, args: List[str]) -> str:
         """Handle /start command"""
-        config = platform_manager.get_config(session.platform)
+        config = channel_manager.get_config(session.channel_identifier)
         friendly_model = session.current_model_friendly  # ✓ Show friendly name
 
-        if session.platform == "internal":
+        if session.channel_identifier == "internal":
             welcome = MESSAGES_FA["welcome_internal"].format(model=friendly_model)
             if session.is_admin:
                 welcome += MESSAGES_FA["welcome_internal_admin"]
@@ -97,8 +97,8 @@ class CommandProcessor:
 
     async def handle_help(self, session: ChatSession, args: List[str]) -> str:
         """Handle /help command"""
-        allowed_commands = platform_manager.get_allowed_commands(session.platform)
-        config = platform_manager.get_config(session.platform)
+        allowed_commands = channel_manager.get_allowed_commands(session.channel_identifier)
+        config = channel_manager.get_config(session.channel_identifier)
         friendly_model = session.current_model_friendly  # ✓ Show friendly name
 
         help_text = "📚 **دستورات موجود:**\n\n"
@@ -112,7 +112,7 @@ class CommandProcessor:
         help_text += "\n"
 
         help_text += "\n📊 **اطلاعات پلتفرم:**\n"
-        if session.platform == "internal":
+        if session.channel_identifier == "internal":
             help_text += "• پلتفرم: داخلی (خصوصی)\n"
             help_text += "• تغییر مدل: ✅ فعال\n"
             help_text += f"• مدل فعلی: {friendly_model}\n"  # ✓ Show friendly name
@@ -132,12 +132,12 @@ class CommandProcessor:
 
     async def handle_status(self, session: ChatSession, args: List[str]) -> str:
         """Handle /status command"""
-        config = platform_manager.get_config(session.platform)
+        config = channel_manager.get_config(session.channel_identifier)
         friendly_model = session.current_model_friendly  # ✓ Show friendly name
 
         status_text = (
             f"📊 **وضعیت نشست:**\n\n"
-            f"• پلتفرم: {session.platform.title()}\n"
+            f"• پلتفرم: {session.channel_identifier.title()}\n"
             f"• نوع: {'خصوصی (داخلی)' if config.type == 'private' else 'عمومی'}\n"
             f"• مدل فعلی: {friendly_model}\n"  # ✓ Show friendly name
             f"• تعداد کل پیام‌ها: {session.total_message_count}\n"
@@ -170,7 +170,7 @@ class CommandProcessor:
 
             # Update all uncleared messages for this user
             db.query(Message).filter(
-                Message.platform == session.platform,
+                Message.channel_identifier == session.channel_identifier,
                 Message.user_id == session.user_id,
                 Message.channel_id == session.channel_id if session.channel_id else Message.channel_id.is_(None),
                 Message.cleared_at.is_(None),  # Only update uncleared messages
@@ -179,7 +179,7 @@ class CommandProcessor:
             db.commit()
             logger.info(
                 f"Marked messages as cleared for user={session.user_id} "
-                f"platform={session.platform} channel={session.channel_id}"
+                f"platform={session.channel_identifier} channel={session.channel_id}"
             )
         except Exception as e:
             logger.error(f"Error marking messages as cleared in DB: {e}")
@@ -196,7 +196,7 @@ class CommandProcessor:
 
         if not args:
             # Show current model and available models (ALL AS FRIENDLY NAMES)
-            friendly_models = platform_manager.get_available_models_friendly(session.platform)
+            friendly_models = channel_manager.get_available_models_friendly(session.channel_identifier)
             current_friendly = session.current_model_friendly
 
             models_text = f"**مدل فعلی:** {current_friendly}\n\n"  # ✓ Friendly name
@@ -211,7 +211,7 @@ class CommandProcessor:
             models_text += "\n💡 **دستورات آماده (کپی کنید):**\n"
 
             # Add copiable commands based on platform
-            if session.platform == "telegram":
+            if session.channel_identifier == "telegram":
                 models_text += "• /model gemini - Gemini Flash\n"
                 models_text += "• /model deepseek - DeepSeek v3\n"
                 models_text += "• /model mini - GPT-4o Mini\n"
@@ -229,17 +229,17 @@ class CommandProcessor:
         model_input = " ".join(args)
 
         # Resolve to technical ID (handles friendly names, aliases, technical IDs)
-        technical_model = platform_manager.resolve_model_name(model_input, session.platform)
+        technical_model = channel_manager.resolve_model_name(model_input, session.channel_identifier)
 
         if not technical_model:
             # Invalid model - show available friendly names with copiable commands
-            friendly_models = platform_manager.get_available_models_friendly(session.platform)
+            friendly_models = channel_manager.get_available_models_friendly(session.channel_identifier)
             error_text = MESSAGES_FA["model_invalid"].format(model=model_input) + "\n\n"
             error_text += "**مدل‌های موجود:**\n"
             error_text += "\n".join([f"• {m}" for m in friendly_models])  # ✓ Friendly names
 
             error_text += "\n\n💡 **دستورات آماده (کپی کنید):**\n"
-            if session.platform == "telegram":
+            if session.channel_identifier == "telegram":
                 error_text += "• /model gemini\n• /model deepseek\n• /model mini\n• /model gemma"
             else:
                 error_text += "• /model claude\n• /model gpt5\n• /model gpt4\n• /model mini"
@@ -253,12 +253,12 @@ class CommandProcessor:
 
     async def handle_models(self, session: ChatSession, args: List[str]) -> str:
         """Handle /models command - shows all as friendly names"""
-        friendly_models = platform_manager.get_available_models_friendly(
-            session.platform
+        friendly_models = channel_manager.get_available_models_friendly(
+            session.channel_identifier
         )  # ✓ Get friendly names
         current_friendly = session.current_model_friendly
 
-        if session.platform == "telegram":
+        if session.channel_identifier == "telegram":
             models_text = "🤖 **مدل‌های موجود در تلگرام:**\n\n"
         else:
             models_text = "🤖 **مدل‌های موجود (داخلی):**\n\n"
@@ -272,7 +272,7 @@ class CommandProcessor:
         models_text += "\n💡 **دستورات آماده (کپی کنید):**\n"
 
         # Add copiable commands based on platform
-        if session.platform == "telegram":
+        if session.channel_identifier == "telegram":
             models_text += "• /model gemini - Gemini Flash\n"
             models_text += "• /model flash-2.5 - Gemini 2.5 Flash\n"
             models_text += "• /model deepseek - DeepSeek v3\n"
@@ -293,7 +293,7 @@ class CommandProcessor:
 
     async def handle_settings(self, session: ChatSession, args: List[str]) -> str:
         """Handle /settings command (private only)"""
-        if session.platform != "internal":
+        if session.channel_identifier != "internal":
             return MESSAGES_FA["internal_only"]
 
         friendly_model = session.current_model_friendly  # ✓ Show friendly name
@@ -301,7 +301,7 @@ class CommandProcessor:
         settings_text = (
             "⚙️ **تنظیمات کاربر:**\n\n"
             f"• شناسه کاربر: {session.user_id}\n"
-            f"• پلتفرم: {session.platform}\n"
+            f"• پلتفرم: {session.channel_identifier}\n"
             f"• مدل پیش‌فرض: {friendly_model}\n"  # ✓ Friendly name
             f"• وضعیت ادمین: {'بله' if session.is_admin else 'خیر'}\n\n"
             "امکان سفارشی‌سازی تنظیمات به زودی..."

@@ -12,7 +12,7 @@ from app.models.schemas import BotResponse, IncomingMessage
 from app.models.session import ChatSession
 from app.services.ai_client import ai_client
 from app.services.command_processor import command_processor
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 from app.services.session_manager import session_manager
 from app.services.usage_tracker import UsageTracker
 
@@ -42,8 +42,8 @@ class MessageProcessor:
             )
 
             # Check authentication if required
-            if platform_manager.requires_auth(message.platform):
-                if not message.auth_token or not platform_manager.validate_auth(
+            if channel_manager.requires_auth(message.platform):
+                if not message.auth_token or not channel_manager.validate_auth(
                     message.platform, message.auth_token
                 ):
                     return BotResponse(
@@ -54,7 +54,7 @@ class MessageProcessor:
 
             # Check rate limit
             if not session_manager.check_rate_limit(message.platform, message.user_id):
-                rate_limit = platform_manager.get_rate_limit(message.platform)
+                rate_limit = channel_manager.get_rate_limit(message.platform)
                 return BotResponse(
                     success=False,
                     error="rate_limit",
@@ -86,7 +86,7 @@ class MessageProcessor:
 
     async def process_message_simple(
         self,
-        platform_name: str,
+        channel_identifier: str,
         channel_id: Optional[int],
         api_key_id: Optional[int],
         api_key_prefix: Optional[str],
@@ -97,7 +97,7 @@ class MessageProcessor:
         Process message with simplified interface (text-only, no webhooks).
 
         Args:
-            platform_name: Platform name (e.g., "telegram", "Internal-BI")
+            channel_identifier: Platform name (e.g., "telegram", "Internal-BI")
             channel_id: Channel ID (None for Telegram, required for authenticated platforms)
             api_key_id: API key ID (None for Telegram)
             api_key_prefix: API key prefix (None for Telegram)
@@ -114,7 +114,7 @@ class MessageProcessor:
             # Get or create session (loads message history from DB)
             try:
                 session = session_manager.get_or_create_session(
-                    platform=platform_name,
+                    channel_identifier=channel_identifier_name,
                     user_id=user_id,
                     channel_id=channel_id,
                     api_key_id=api_key_id,
@@ -130,7 +130,7 @@ class MessageProcessor:
 
             # Check rate limit
             if not session_manager.check_rate_limit(platform_name, user_id):
-                rate_limit = session.platform_config.get("rate_limit", 60)
+                rate_limit = session.channel_config.get("rate_limit", 60)
 
                 # Log rate limit failure (only for authenticated channels)
                 if channel_id and api_key_id:
@@ -140,7 +140,7 @@ class MessageProcessor:
                         api_key_id=api_key_id,
                         channel_id=channel_id,
                         session_id=session.session_id,
-                        platform=platform_name,
+                        channel_identifier=channel_identifier_name,
                         model_used=session.current_model,
                         success=False,
                         response_time_ms=response_time_ms,
@@ -173,7 +173,7 @@ class MessageProcessor:
             session.total_message_count = (
                 db.query(func.count(Message.id))
                 .filter(
-                    Message.platform == platform_name,
+                    Message.channel_identifier == platform_name,
                     Message.user_id == user_id,
                     Message.channel_id == channel_id if channel_id else Message.channel_id.is_(None),
                 )
@@ -189,7 +189,7 @@ class MessageProcessor:
                     api_key_id=api_key_id,
                     channel_id=channel_id,
                     session_id=session.session_id,
-                    platform=platform_name,
+                    channel_identifier=channel_identifier_name,
                     model_used=session.current_model,
                     success=True,
                     response_time_ms=response_time_ms,
@@ -220,7 +220,7 @@ class MessageProcessor:
                         api_key_id=api_key_id,
                         channel_id=channel_id,
                         session_id=session_id,
-                        platform=platform_name,
+                        channel_identifier=channel_identifier_name,
                         model_used=model_used,
                         success=False,
                         response_time_ms=response_time_ms,
@@ -251,7 +251,7 @@ class MessageProcessor:
 
         try:
             # Get max history for platform
-            max_history = platform_manager.get_max_history(session.platform)
+            max_history = channel_manager.get_max_history(session.channel_identifier)
 
             # Send to AI service with session's current model
             try:
@@ -274,7 +274,7 @@ class MessageProcessor:
                     user_msg = Message(
                         channel_id=session.channel_id,
                         api_key_id=session.api_key_id,
-                        platform=session.platform,
+                        channel_identifier=session.channel_identifier,
                         user_id=session.user_id,
                         role="user",
                         content=text,
@@ -282,7 +282,7 @@ class MessageProcessor:
                     assistant_msg = Message(
                         channel_id=session.channel_id,
                         api_key_id=session.api_key_id,
-                        platform=session.platform,
+                        channel_identifier=session.channel_identifier,
                         user_id=session.user_id,
                         role="assistant",
                         content=ai_response,
@@ -327,7 +327,7 @@ class MessageProcessor:
                         files.append({"Data": att.data, "MIMEType": att.mime_type or "image/jpeg"})
 
             # Get max history for platform
-            max_history = platform_manager.get_max_history(session.platform)
+            max_history = channel_manager.get_max_history(session.channel_identifier)
 
             # Send to AI service with session's current model
             try:

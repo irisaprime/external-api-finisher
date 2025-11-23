@@ -148,7 +148,7 @@ class BotResponse(BaseModel):
     )
 
 
-class PlatformConfigResponse(BaseModel):
+class ChannelConfigResponse(BaseModel):
     """Platform configuration response"""
 
     model_config = ConfigDict(
@@ -202,7 +202,7 @@ class SessionStatusResponse(BaseModel):
     )
 
     user_id: str = Field(..., examples=["user_12345", "telegram_987654"])
-    platform: str = Field(..., examples=["telegram", "Internal-BI"])
+    channel_identifier: str = Field(..., examples=["telegram", "Internal-BI"])
     access_type: str = Field(..., examples=["public", "private"])
     current_model: str = Field(..., examples=["Gemini 2.0 Flash", "DeepSeek Chat V3"])
     total_message_count: int = Field(

@@ -1,5 +1,5 @@
 """
-Platform configuration manager
+Channel configuration manager
 """
 
 import logging
@@ -12,8 +12,8 @@ from app.core.name_mapping import get_friendly_model_name, get_technical_model_n
 logger = logging.getLogger(__name__)
 
 
-class PlatformConfig:
-    """Platform configuration"""
+class ChannelConfig:
+    """Channel configuration"""
 
     def __init__(
         self,
@@ -37,9 +37,9 @@ class PlatformConfig:
         self.api_key = api_key
         self.max_history = max_history
 
-    def copy(self) -> 'PlatformConfig':
+    def copy(self) -> 'ChannelConfig':
         """Create a copy of this config"""
-        return PlatformConfig(
+        return ChannelConfig(
             type=self.type,
             model=self.model,
             available_models=self.available_models.copy(),
@@ -65,21 +65,21 @@ class PlatformConfig:
         }
 
 
-class PlatformManager:
-    """Manages platform-specific configurations with database-driven overrides"""
+class ChannelManager:
+    """Manages channel-specific configurations with database-driven overrides"""
 
     def __init__(self):
-        # Default configurations for platform types
-        self.default_configs: Dict[str, PlatformConfig] = {}
+        # Default configurations for channel types
+        self.default_configs: Dict[str, ChannelConfig] = {}
         # Keep backward compatibility configs
-        self.configs: Dict[str, PlatformConfig] = {}
+        self.configs: Dict[str, ChannelConfig] = {}
         self._load_configurations()
 
     def _load_configurations(self):
-        """Load default platform type configurations"""
+        """Load default channel type configurations"""
 
-        # Public platform defaults (Telegram, Discord, etc.)
-        public_config = PlatformConfig(
+        # Public channel defaults (Telegram, Discord, etc.)
+        public_config = ChannelConfig(
             type=PlatformType.PUBLIC,
             model=settings.TELEGRAM_DEFAULT_MODEL,
             available_models=settings.telegram_models_list,
@@ -90,8 +90,8 @@ class PlatformManager:
             max_history=settings.TELEGRAM_MAX_HISTORY,
         )
 
-        # Private platform defaults (Customer integrations)
-        private_config = PlatformConfig(
+        # Private channel defaults (Customer integrations)
+        private_config = ChannelConfig(
             type=PlatformType.PRIVATE,
             model=settings.INTERNAL_DEFAULT_MODEL,
             available_models=settings.internal_models_list,
@@ -111,20 +111,20 @@ class PlatformManager:
         self.configs[Platform.TELEGRAM] = public_config
         self.configs[Platform.INTERNAL] = private_config
 
-        logger.info("Platform configurations loaded successfully")
+        logger.info("Channel configurations loaded successfully")
         logger.info(f"  - Public: {public_config.model} + {len(public_config.available_models)} models")
         logger.info(f"  - Private: {len(private_config.available_models)} models")
 
-    def get_config(self, platform: str, channel: Optional[Any] = None) -> PlatformConfig:
+    def get_config(self, channel_identifier: str, channel: Optional[Any] = None) -> ChannelConfig:
         """
-        Get configuration for a platform with optional channel-specific overrides.
+        Get configuration for a channel with optional channel-specific overrides.
 
         Args:
-            platform: Platform name (e.g., "telegram", "popak", "avand")
+            channel_identifier: Channel identifier (e.g., "telegram", "Internal-BI", "HOSCO-Popak")
             channel: Optional Channel object with configuration overrides
 
         Returns:
-            PlatformConfig with defaults and channel-specific overrides applied
+            ChannelConfig with defaults and channel-specific overrides applied
         """
         # If channel provided, build custom config with overrides
         if channel:
@@ -154,109 +154,109 @@ class PlatformManager:
 
             return config
 
-        # Fallback: determine type by platform name (backward compatibility)
-        platform_lower = platform.lower()
+        # Fallback: determine type by channel identifier (backward compatibility)
+        channel_lower = channel_identifier.lower()
 
-        if platform_lower in self.configs:
-            return self.configs[platform_lower]
+        if channel_lower in self.configs:
+            return self.configs[channel_lower]
 
-        # Unknown platforms default to private config
+        # Unknown channels default to private config
         return self.default_configs['private']
 
-    def is_private_platform(self, platform: str) -> bool:
-        """Check if platform is private"""
-        config = self.get_config(platform)
+    def is_private_channel(self, channel_identifier: str) -> bool:
+        """Check if channel is private"""
+        config = self.get_config(channel_identifier)
         return config.type == PlatformType.PRIVATE
 
-    def can_switch_models(self, platform: str) -> bool:
-        """Check if platform allows model switching"""
-        config = self.get_config(platform)
+    def can_switch_models(self, channel_identifier: str) -> bool:
+        """Check if channel allows model switching"""
+        config = self.get_config(channel_identifier)
         return config.allow_model_switch
 
-    def get_available_models(self, platform: str) -> List[str]:
-        """Get available models for platform"""
-        config = self.get_config(platform)
+    def get_available_models(self, channel_identifier: str) -> List[str]:
+        """Get available models for channel"""
+        config = self.get_config(channel_identifier)
         return config.available_models
 
-    def get_default_model(self, platform: str) -> str:
-        """Get default model for platform"""
-        config = self.get_config(platform)
+    def get_default_model(self, channel_identifier: str) -> str:
+        """Get default model for channel"""
+        config = self.get_config(channel_identifier)
         return config.model
 
-    def get_rate_limit(self, platform: str) -> int:
-        """Get rate limit for platform"""
-        config = self.get_config(platform)
+    def get_rate_limit(self, channel_identifier: str) -> int:
+        """Get rate limit for channel"""
+        config = self.get_config(channel_identifier)
         return config.rate_limit
 
-    def get_allowed_commands(self, platform: str) -> List[str]:
-        """Get allowed commands for platform"""
-        config = self.get_config(platform)
+    def get_allowed_commands(self, channel_identifier: str) -> List[str]:
+        """Get allowed commands for channel"""
+        config = self.get_config(channel_identifier)
         return config.commands
 
-    def get_max_history(self, platform: str) -> int:
-        """Get maximum history length for platform"""
-        config = self.get_config(platform)
+    def get_max_history(self, channel_identifier: str) -> int:
+        """Get maximum history length for channel"""
+        config = self.get_config(channel_identifier)
         return config.max_history
 
-    def requires_auth(self, platform: str) -> bool:
-        """Check if platform requires authentication"""
-        config = self.get_config(platform)
+    def requires_auth(self, channel_identifier: str) -> bool:
+        """Check if channel requires authentication"""
+        config = self.get_config(channel_identifier)
         return config.requires_auth
 
-    def validate_auth(self, platform: str, token: str) -> bool:
-        """Validate authentication for platform"""
-        config = self.get_config(platform)
+    def validate_auth(self, channel_identifier: str, token: str) -> bool:
+        """Validate authentication for channel"""
+        config = self.get_config(channel_identifier)
         if not config.requires_auth:
             return True
         return config.api_key and token == config.api_key
 
-    def is_admin(self, platform: str, user_id: str) -> bool:
-        """Check if user is admin for platform"""
-        if platform == Platform.TELEGRAM:
+    def is_admin(self, channel_identifier: str, user_id: str) -> bool:
+        """Check if user is admin for channel"""
+        if channel_identifier == Platform.TELEGRAM:
             return user_id in settings.telegram_admin_users_set
-        elif platform == Platform.INTERNAL:
+        elif channel_identifier == Platform.INTERNAL:
             return user_id in settings.internal_admin_users_set
         return False
 
-    def is_model_available(self, platform: str, model: str) -> bool:
-        """Check if model is available for platform"""
-        available_models = self.get_available_models(platform)
+    def is_model_available(self, channel_identifier: str, model: str) -> bool:
+        """Check if model is available for channel"""
+        available_models = self.get_available_models(channel_identifier)
         return model in available_models
 
-    def get_available_models_friendly(self, platform: str) -> List[str]:
+    def get_available_models_friendly(self, channel_identifier: str) -> List[str]:
         """
         Get available models as friendly display names.
 
         Args:
-            platform: Platform name
+            channel_identifier: Channel identifier
 
         Returns:
             List of friendly model names (e.g., ["Gemini 2.0 Flash", "GPT-4o Mini"])
         """
-        technical_models = self.get_available_models(platform)
+        technical_models = self.get_available_models(channel_identifier)
         return [get_friendly_model_name(m) for m in technical_models]
 
-    def get_default_model_friendly(self, platform: str) -> str:
+    def get_default_model_friendly(self, channel_identifier: str) -> str:
         """
         Get default model as friendly display name.
 
         Args:
-            platform: Platform name
+            channel_identifier: Channel identifier
 
         Returns:
             Friendly model name (e.g., "Gemini 2.0 Flash")
         """
-        technical = self.get_default_model(platform)
+        technical = self.get_default_model(channel_identifier)
         return get_friendly_model_name(technical)
 
-    def resolve_model_name(self, model_input: str, platform: str) -> Optional[str]:
+    def resolve_model_name(self, model_input: str, channel_identifier: str) -> Optional[str]:
         """
         Convert any model name format (friendly, alias, or technical) to technical ID.
-        Validates that the model is available on the specified platform.
+        Validates that the model is available on the specified channel.
 
         Args:
             model_input: User input - can be friendly name, alias, or technical ID
-            platform: Platform name
+            channel_identifier: Channel identifier
 
         Returns:
             Technical model ID if valid and available, None otherwise
@@ -270,28 +270,28 @@ class PlatformManager:
         model_input = model_input.strip()
 
         # Check if already technical ID and available
-        if self.is_model_available(platform, model_input):
+        if self.is_model_available(channel_identifier, model_input):
             return model_input
 
         # Try as friendly name -> technical
         technical = get_technical_model_name(model_input)
-        if self.is_model_available(platform, technical):
+        if self.is_model_available(channel_identifier, technical):
             return technical
 
         # Try as alias -> friendly -> technical
         from app.core.constants import MODEL_ALIASES, TELEGRAM_MODEL_ALIASES
 
-        aliases = TELEGRAM_MODEL_ALIASES if platform == "telegram" else MODEL_ALIASES
+        aliases = TELEGRAM_MODEL_ALIASES if channel_identifier == "telegram" else MODEL_ALIASES
 
         model_lower = model_input.lower()
         if model_lower in aliases:
             friendly = aliases[model_lower]
             technical = get_technical_model_name(friendly)
-            if self.is_model_available(platform, technical):
+            if self.is_model_available(channel_identifier, technical):
                 return technical
 
         return None
 
 
 # Global instance
-platform_manager = PlatformManager()
+channel_manager = ChannelManager()

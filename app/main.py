@@ -16,7 +16,7 @@ from app.api.routes import router
 from app.core.config import settings
 from app.core.database_init import create_logs_directory, initialize_database
 from app.services.ai_client import ai_client
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 from app.services.session_manager import session_manager
 from app.utils.logger import setup_logging
 
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
     logger.info("Platform Configurations:")
 
     # Telegram
-    telegram_config = platform_manager.get_config("telegram")
+    telegram_config = channel_manager.get_config("telegram")
     logger.info("  Telegram (Public):")
     logger.info(f"    - Model: {telegram_config.model}")
     logger.info(f"    - Rate Limit: {telegram_config.rate_limit}/min")
@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"    - Max History: {telegram_config.max_history}")
 
     # Internal
-    internal_config = platform_manager.get_config("internal")
+    internal_config = channel_manager.get_config("internal")
     logger.info("  Internal (Private):")
     logger.info(f"    - Default Model: {internal_config.model}")
     logger.info(f"    - Available Models: {len(internal_config.available_models)}")

@@ -73,7 +73,7 @@ def upgrade() -> None:
         sa.Column('api_key_id', sa.Integer(), nullable=False),
         sa.Column('channel_id', sa.Integer(), nullable=False),
         sa.Column('session_id', sa.String(length=64), nullable=False),
-        sa.Column('platform', sa.String(length=50), nullable=False),
+        sa.Column('channel_identifier', sa.String(length=50), nullable=False),
         sa.Column('model_used', sa.String(length=255), nullable=False),
         sa.Column('request_count', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('tokens_used', sa.Integer(), nullable=True),
@@ -98,7 +98,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('channel_id', sa.Integer(), nullable=True),
         sa.Column('api_key_id', sa.Integer(), nullable=True),
-        sa.Column('platform', sa.String(length=50), nullable=False),
+        sa.Column('channel_identifier', sa.String(length=50), nullable=False),
         sa.Column('user_id', sa.String(length=255), nullable=False),
         sa.Column('role', sa.String(length=20), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
@@ -111,7 +111,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_messages_id'), 'messages', ['id'], unique=False)
     op.create_index(op.f('ix_messages_channel_id'), 'messages', ['channel_id'], unique=False)
     op.create_index(op.f('ix_messages_api_key_id'), 'messages', ['api_key_id'], unique=False)
-    op.create_index(op.f('ix_messages_platform'), 'messages', ['platform'], unique=False)
+    op.create_index(op.f('ix_messages_channel_identifier'), 'messages', ['channel_identifier'], unique=False)
     op.create_index(op.f('ix_messages_user_id'), 'messages', ['user_id'], unique=False)
     op.create_index(op.f('ix_messages_created_at'), 'messages', ['created_at'], unique=False)
 
@@ -120,7 +120,7 @@ def downgrade() -> None:
     # Drop all tables in reverse order
     op.drop_index(op.f('ix_messages_created_at'), table_name='messages')
     op.drop_index(op.f('ix_messages_user_id'), table_name='messages')
-    op.drop_index(op.f('ix_messages_platform'), table_name='messages')
+    op.drop_index(op.f('ix_messages_channel_identifier'), table_name='messages')
     op.drop_index(op.f('ix_messages_api_key_id'), table_name='messages')
     op.drop_index(op.f('ix_messages_channel_id'), table_name='messages')
     op.drop_index(op.f('ix_messages_id'), table_name='messages')
