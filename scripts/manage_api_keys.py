@@ -23,11 +23,33 @@ from app.services.usage_tracker import UsageTracker
 
 
 def init_database():
-    """Initialize the database"""
-    print("Initializing database...")
+    """
+    Initialize the database
+
+    NOTE: Database schema is managed through Alembic migrations.
+    This function only tests the connection.
+
+    To initialize the database schema, use:
+        make migrate-up
+    Or:
+        alembic upgrade head
+    """
+    print("Initializing database connection...")
     db_instance = get_database()
-    db_instance.create_tables()
-    print("[OK] Database initialized successfully")
+    if db_instance.test_connection():
+        print("[OK] Database connection successful")
+        print()
+        print("NEXT STEPS:")
+        print("  1. Run migrations to create schema:")
+        print("     make migrate-up")
+        print("     OR")
+        print("     alembic upgrade head")
+        print()
+        print("  2. Create your first channel:")
+        print("     make db-channel-create NAME=\"My Channel\"")
+    else:
+        print("[ERROR] Database connection failed")
+        sys.exit(1)
 
 
 def create_channel(name: str, daily_quota: int = None, monthly_quota: int = None):
@@ -36,18 +58,28 @@ def create_channel(name: str, daily_quota: int = None, monthly_quota: int = None
     session = next(db.get_session())
 
     try:
-        channel = APIKeyManager.create_channel_with_key(
+        channel, api_key_string = APIKeyManager.create_channel_with_key(
             db=session,
-            name=name,
+            channel_id=name,  # Use name as channel_id (system identifier)
+            title=name,       # Also use as human-friendly title
             daily_quota=daily_quota,
             monthly_quota=monthly_quota,
         )
         print(f"[OK] Channel created successfully!")
         print(f"  ID: {channel.id}")
         print(f"  Display Name: {channel.title}")
-        print(f"  Platform: {channel.channel_id}")
+        print(f"  Channel ID: {channel.channel_id}")
         print(f"  Daily Quota: {channel.daily_quota or 'Unlimited'}")
         print(f"  Monthly Quota: {channel.monthly_quota or 'Unlimited'}")
+        print()
+        print("=" * 60)
+        print("IMPORTANT: Save this API key securely!")
+        print("It will not be shown again.")
+        print("=" * 60)
+        print()
+        print(f"API Key: {api_key_string}")
+        print()
+        print("=" * 60)
     except Exception as e:
         print(f"[ERROR] Error creating channel: {e}")
         sys.exit(1)

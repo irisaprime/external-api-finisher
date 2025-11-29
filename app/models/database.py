@@ -145,7 +145,7 @@ class UsageLog(Base):
 
     # Request details
     session_id = Column(String(64), nullable=False, index=True)
-    platform = Column(String(50), nullable=False)
+    channel_identifier = Column(String(50), nullable=False, index=True)  # "telegram", "Internal-BI", etc.
     model_used = Column(String(255), nullable=False)  # Friendly model name
 
     # Usage metrics
@@ -349,7 +349,7 @@ class Message(Base):
     # Isolation fields
     channel_id = Column(Integer, ForeignKey("channels.id"), nullable=True, index=True)  # None for public channels (Telegram)
     api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)  # None for public channels (Telegram)
-    platform = Column(String(50), nullable=False, index=True)  # "telegram", "popak", "avand", etc.
+    channel_identifier = Column(String(50), nullable=False, index=True)  # "telegram", "Internal-BI", "HOSCO-Popak", etc.
     user_id = Column(String(255), nullable=False, index=True)  # User identifier from client
 
     # Message content
@@ -367,4 +367,4 @@ class Message(Base):
     api_key = relationship("APIKey", foreign_keys=[api_key_id])
 
     def __repr__(self):
-        return f"<Message(id={self.id}, platform='{self.platform}', role='{self.role}')>"
+        return f"<Message(id={self.id}, channel_identifier='{self.channel_identifier}', role='{self.role}')>"

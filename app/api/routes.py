@@ -39,7 +39,7 @@ from app.models.schemas import (
     IncomingMessage,
 )
 from app.services.message_processor import message_processor
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +306,7 @@ async def chat(
     # Determine mode based on authentication type
     if auth == "telegram":
         # TELEGRAM MODE: Telegram bot service
-        platform_name = "telegram"
+        channel_identifier = "telegram"
         channel_id = None
         api_key_id = None
         api_key_prefix = None
@@ -314,18 +314,18 @@ async def chat(
         logger.info(f"[TELEGRAM] bot_request user_id={message.user_id}")
     else:
         # CHANNEL MODE: Authenticated external channel
-        platform_name = auth.channel.channel_id
+        channel_identifier = auth.channel.channel_id
         channel_id = auth.channel_id
         api_key_id = auth.id
         api_key_prefix = auth.key_prefix
 
         logger.info(
-            f"[CHANNEL] chat_request platform={platform_name} channel_id={channel_id} user_id={message.user_id}"
+            f"[CHANNEL] chat_request channel={channel_identifier} channel_id={channel_id} user_id={message.user_id}"
         )
 
     # Process message (handles both modes)
     return await message_processor.process_message_simple(
-        platform_name=platform_name,
+        channel_identifier=channel_identifier,
         channel_id=channel_id,
         api_key_id=api_key_id,
         api_key_prefix=api_key_prefix,
@@ -511,18 +511,18 @@ async def get_commands(
     - Channel traffic: Logged as [CHANNEL]
     - Unauthorized traffic: Blocked with 401/403
     """
-    # Determine platform based on authentication type
+    # Determine channel based on authentication type
     if auth == "telegram":
         # TELEGRAM MODE: Telegram bot service
-        platform_name = "telegram"
+        channel_identifier = "telegram"
         logger.info("[TELEGRAM] commands_request platform=telegram")
     else:
         # CHANNEL MODE: Authenticated external channel
-        platform_name = auth.channel.channel_id
-        logger.info(f"[CHANNEL] commands_request platform={platform_name} channel_id={auth.channel_id}")
+        channel_identifier = auth.channel.channel_id
+        logger.info(f"[CHANNEL] commands_request channel={channel_identifier} channel_id={auth.channel_id}")
 
-    # Get allowed commands for this platform
-    allowed_commands = platform_manager.get_allowed_commands(platform_name)
+    # Get allowed commands for this channel
+    allowed_commands = channel_manager.get_allowed_commands(channel_identifier)
 
     # Build command list with descriptions
     commands_list = []
@@ -532,4 +532,4 @@ async def get_commands(
                 {"command": cmd, "description": COMMAND_DESCRIPTIONS[cmd], "usage": f"/{cmd}"}
             )
 
-    return {"success": True, "platform": platform_name, "commands": commands_list}
+    return {"success": True, "platform": channel_identifier, "commands": commands_list}

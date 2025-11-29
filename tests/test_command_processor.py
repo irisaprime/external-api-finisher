@@ -148,10 +148,10 @@ class TestCommandParsing:
 class TestCommandAccessControl:
     """Tests for platform-specific command access control"""
 
-    @patch("app.services.command_processor.platform_manager")
-    def test_can_use_command_allowed(self, mock_platform_manager, command_processor):
+    @patch("app.services.command_processor.channel_manager")
+    def test_can_use_command_allowed(self, mock_channel_manager, command_processor):
         """Test command is allowed for platform"""
-        mock_platform_manager.get_allowed_commands.return_value = [
+        mock_channel_manager.get_allowed_commands.return_value = [
             "start",
             "help",
             "status",
@@ -160,10 +160,10 @@ class TestCommandAccessControl:
         assert command_processor.can_use_command("start", "telegram") is True
         assert command_processor.can_use_command("help", "telegram") is True
 
-    @patch("app.services.command_processor.platform_manager")
-    def test_can_use_command_not_allowed(self, mock_platform_manager, command_processor):
+    @patch("app.services.command_processor.channel_manager")
+    def test_can_use_command_not_allowed(self, mock_channel_manager, command_processor):
         """Test command is not allowed for platform"""
-        mock_platform_manager.get_allowed_commands.return_value = ["start", "help"]
+        mock_channel_manager.get_allowed_commands.return_value = ["start", "help"]
 
         assert command_processor.can_use_command("settings", "telegram") is False
         assert command_processor.can_use_command("admin", "telegram") is False
@@ -173,10 +173,10 @@ class TestStartCommand:
     """Tests for /start command"""
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_start_telegram(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_start_telegram(self, mock_channel_manager, command_processor, telegram_session):
         """Test /start command on Telegram"""
-        mock_platform_manager.get_config.return_value = Mock(rate_limit=20)
+        mock_channel_manager.get_config.return_value = Mock(rate_limit=20)
 
         response = await command_processor.handle_start(telegram_session, [])
 
@@ -185,10 +185,10 @@ class TestStartCommand:
         assert "20" in response or "۲۰" in response  # Should show rate limit
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_start_internal(self, mock_platform_manager, command_processor, internal_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_start_internal(self, mock_channel_manager, command_processor, internal_session):
         """Test /start command on internal platform"""
-        mock_platform_manager.get_config.return_value = Mock(rate_limit=60)
+        mock_channel_manager.get_config.return_value = Mock(rate_limit=60)
 
         response = await command_processor.handle_start(internal_session, [])
 
@@ -196,12 +196,12 @@ class TestStartCommand:
         assert "Claude" in response  # Should show current model
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
+    @patch("app.services.command_processor.channel_manager")
     async def test_start_internal_non_admin(
-        self, mock_platform_manager, command_processor, internal_session
+        self, mock_channel_manager, command_processor, internal_session
     ):
         """Test /start for non-admin internal user (line 90->92 branch)"""
-        mock_platform_manager.get_config.return_value = Mock(rate_limit=60)
+        mock_channel_manager.get_config.return_value = Mock(rate_limit=60)
         internal_session.is_admin = False  # Explicitly test False branch
 
         response = await command_processor.handle_start(internal_session, [])
@@ -212,12 +212,12 @@ class TestStartCommand:
         assert "ادمین" not in response
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
+    @patch("app.services.command_processor.channel_manager")
     async def test_start_internal_admin(
-        self, mock_platform_manager, command_processor, internal_session
+        self, mock_channel_manager, command_processor, internal_session
     ):
         """Test /start command for admin user"""
-        mock_platform_manager.get_config.return_value = Mock(rate_limit=60)
+        mock_channel_manager.get_config.return_value = Mock(rate_limit=60)
         internal_session.is_admin = True
 
         response = await command_processor.handle_start(internal_session, [])
@@ -230,16 +230,16 @@ class TestHelpCommand:
     """Tests for /help command"""
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_help_telegram(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_help_telegram(self, mock_channel_manager, command_processor, telegram_session):
         """Test /help command on Telegram"""
-        mock_platform_manager.get_allowed_commands.return_value = [
+        mock_channel_manager.get_allowed_commands.return_value = [
             "start",
             "help",
             "status",
             "model",
         ]
-        mock_platform_manager.get_config.return_value = Mock(
+        mock_channel_manager.get_config.return_value = Mock(
             rate_limit=20, max_history=10, available_models=["model1", "model2"]
         )
 
@@ -252,17 +252,17 @@ class TestHelpCommand:
         assert "/model" in response
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_help_internal(self, mock_platform_manager, command_processor, internal_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_help_internal(self, mock_channel_manager, command_processor, internal_session):
         """Test /help command on internal platform"""
-        mock_platform_manager.get_allowed_commands.return_value = [
+        mock_channel_manager.get_allowed_commands.return_value = [
             "start",
             "help",
             "status",
             "model",
             "settings",
         ]
-        mock_platform_manager.get_config.return_value = Mock(
+        mock_channel_manager.get_config.return_value = Mock(
             rate_limit=60, max_history=20, available_models=["model1", "model2", "model3"]
         )
 
@@ -273,18 +273,18 @@ class TestHelpCommand:
         assert "/settings" in response  # Internal-only command
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
+    @patch("app.services.command_processor.channel_manager")
     async def test_help_with_unknown_command(
-        self, mock_platform_manager, command_processor, telegram_session
+        self, mock_channel_manager, command_processor, telegram_session
     ):
         """Test /help with unknown command not in COMMAND_DESCRIPTIONS (line 106 branch)"""
         # Include a command that's not in COMMAND_DESCRIPTIONS
-        mock_platform_manager.get_allowed_commands.return_value = [
+        mock_channel_manager.get_allowed_commands.return_value = [
             "start",
             "help",
             "unknown_cmd",  # This command is not in COMMAND_DESCRIPTIONS
         ]
-        mock_platform_manager.get_config.return_value = Mock(
+        mock_channel_manager.get_config.return_value = Mock(
             rate_limit=20, max_history=10, available_models=["model1"]
         )
 
@@ -300,10 +300,10 @@ class TestStatusCommand:
     """Tests for /status command"""
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_status_telegram(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_status_telegram(self, mock_channel_manager, command_processor, telegram_session):
         """Test /status command on Telegram"""
-        mock_platform_manager.get_config.return_value = Mock(type="public", rate_limit=20)
+        mock_channel_manager.get_config.return_value = Mock(type="public", rate_limit=20)
         telegram_session.total_message_count = 5
 
         response = await command_processor.handle_status(telegram_session, [])
@@ -314,10 +314,10 @@ class TestStatusCommand:
         assert "5" in response or "۵" in response  # Message count
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_status_admin(self, mock_platform_manager, command_processor, internal_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_status_admin(self, mock_channel_manager, command_processor, internal_session):
         """Test /status command for admin user"""
-        mock_platform_manager.get_config.return_value = Mock(type="private", rate_limit=60)
+        mock_channel_manager.get_config.return_value = Mock(type="private", rate_limit=60)
         internal_session.is_admin = True
 
         response = await command_processor.handle_status(internal_session, [])
@@ -352,10 +352,10 @@ class TestModelCommand:
     """Tests for /model command"""
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_model_without_args(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_model_without_args(self, mock_channel_manager, command_processor, telegram_session):
         """Test /model command without arguments shows current model"""
-        mock_platform_manager.get_available_models_friendly.return_value = [
+        mock_channel_manager.get_available_models_friendly.return_value = [
             "Gemini 2.0 Flash",
             "DeepSeek v3",
             "GPT-4o Mini",
@@ -368,10 +368,10 @@ class TestModelCommand:
         assert "DeepSeek" in response  # Should show available models
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_model_switch_valid(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_model_switch_valid(self, mock_channel_manager, command_processor, telegram_session):
         """Test switching to valid model"""
-        mock_platform_manager.resolve_model_name.return_value = "deepseek/deepseek-v3"
+        mock_channel_manager.resolve_model_name.return_value = "deepseek/deepseek-v3"
 
         response = await command_processor.handle_model(telegram_session, ["deepseek"])
 
@@ -380,11 +380,11 @@ class TestModelCommand:
         assert "deepseek" in response.lower()  # Should confirm switch (case-insensitive)
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_model_switch_invalid(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_model_switch_invalid(self, mock_channel_manager, command_processor, telegram_session):
         """Test switching to invalid model"""
-        mock_platform_manager.resolve_model_name.return_value = None
-        mock_platform_manager.get_available_models_friendly.return_value = [
+        mock_channel_manager.resolve_model_name.return_value = None
+        mock_channel_manager.get_available_models_friendly.return_value = [
             "Gemini 2.0 Flash",
             "DeepSeek v3",
         ]
@@ -396,10 +396,10 @@ class TestModelCommand:
         assert telegram_session.current_model == "google/gemini-2.0-flash-001"  # Should not change
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_model_multi_word_name(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_model_multi_word_name(self, mock_channel_manager, command_processor, telegram_session):
         """Test switching with multi-word model name"""
-        mock_platform_manager.resolve_model_name.return_value = "google/gemini-2.5-flash"
+        mock_channel_manager.resolve_model_name.return_value = "google/gemini-2.5-flash"
 
         response = await command_processor.handle_model(
             telegram_session, ["Gemini", "2.5", "Flash"]
@@ -413,10 +413,10 @@ class TestModelsCommand:
     """Tests for /models command"""
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_models_telegram(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_models_telegram(self, mock_channel_manager, command_processor, telegram_session):
         """Test /models command on Telegram"""
-        mock_platform_manager.get_available_models_friendly.return_value = [
+        mock_channel_manager.get_available_models_friendly.return_value = [
             "Gemini 2.0 Flash",
             "DeepSeek v3",
             "GPT-4o Mini",
@@ -431,10 +431,10 @@ class TestModelsCommand:
         assert "فعلی" in response  # Should mark current model
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_models_internal(self, mock_platform_manager, command_processor, internal_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_models_internal(self, mock_channel_manager, command_processor, internal_session):
         """Test /models command on internal platform"""
-        mock_platform_manager.get_available_models_friendly.return_value = [
+        mock_channel_manager.get_available_models_friendly.return_value = [
             "Claude Sonnet 4",
             "GPT-5",
             "Grok 4",
@@ -473,11 +473,11 @@ class TestCommandProcessor:
     """Integration tests for command processor"""
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_process_valid_command(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_process_valid_command(self, mock_channel_manager, command_processor, telegram_session):
         """Test processing valid command"""
-        mock_platform_manager.get_allowed_commands.return_value = ["start", "help", "status"]
-        mock_platform_manager.get_config.return_value = Mock(rate_limit=20)
+        mock_channel_manager.get_allowed_commands.return_value = ["start", "help", "status"]
+        mock_channel_manager.get_config.return_value = Mock(rate_limit=20)
 
         response = await command_processor.process_command(telegram_session, "/start")
 
@@ -485,10 +485,10 @@ class TestCommandProcessor:
         assert "Gemini" in response
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_process_command_not_allowed(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_process_command_not_allowed(self, mock_channel_manager, command_processor, telegram_session):
         """Test processing command not allowed for platform"""
-        mock_platform_manager.get_allowed_commands.return_value = ["start", "help"]
+        mock_channel_manager.get_allowed_commands.return_value = ["start", "help"]
 
         response = await command_processor.process_command(telegram_session, "/settings")
 
@@ -499,7 +499,7 @@ class TestCommandProcessor:
     @pytest.mark.asyncio
     async def test_process_unknown_command(self, command_processor, telegram_session):
         """Test processing unknown command"""
-        with patch("app.services.command_processor.platform_manager") as mock_pm:
+        with patch("app.services.command_processor.channel_manager") as mock_pm:
             mock_pm.get_allowed_commands.return_value = [
                 "start",
                 "help",
@@ -513,11 +513,11 @@ class TestCommandProcessor:
             assert "unknown_cmd" in response.lower()
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_process_command_with_error(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_process_command_with_error(self, mock_channel_manager, command_processor, telegram_session):
         """Test command processing with error"""
-        mock_platform_manager.get_allowed_commands.return_value = ["start"]
-        mock_platform_manager.get_config.side_effect = Exception("Test error")
+        mock_channel_manager.get_allowed_commands.return_value = ["start"]
+        mock_channel_manager.get_config.side_effect = Exception("Test error")
 
         response = await command_processor.process_command(telegram_session, "/start")
 
@@ -525,10 +525,10 @@ class TestCommandProcessor:
         assert "خطا" in response  # Persian for "error"
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_process_empty_command(self, mock_platform_manager, command_processor, telegram_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_process_empty_command(self, mock_channel_manager, command_processor, telegram_session):
         """Test processing empty command (line 62 coverage)"""
-        mock_platform_manager.get_allowed_commands.return_value = ["start", "help"]
+        mock_channel_manager.get_allowed_commands.return_value = ["start", "help"]
 
         # Send just the slash with no command
         response = await command_processor.process_command(telegram_session, "/")
@@ -537,10 +537,10 @@ class TestCommandProcessor:
         assert len(response) > 0  # Should return unknown command message
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_model_without_args_internal(self, mock_platform_manager, command_processor, internal_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_model_without_args_internal(self, mock_channel_manager, command_processor, internal_session):
         """Test /model command without arguments on internal platform (lines 183-187 coverage)"""
-        mock_platform_manager.get_available_models_friendly.return_value = [
+        mock_channel_manager.get_available_models_friendly.return_value = [
             "Claude Sonnet 4",
             "GPT-5",
             "GPT-4.1",
@@ -555,11 +555,11 @@ class TestCommandProcessor:
         assert "claude" in response.lower() or "gpt5" in response.lower()
 
     @pytest.mark.asyncio
-    @patch("app.services.command_processor.platform_manager")
-    async def test_model_switch_invalid_internal(self, mock_platform_manager, command_processor, internal_session):
+    @patch("app.services.command_processor.channel_manager")
+    async def test_model_switch_invalid_internal(self, mock_channel_manager, command_processor, internal_session):
         """Test switching to invalid model on internal platform (line 208 coverage)"""
-        mock_platform_manager.resolve_model_name.return_value = None
-        mock_platform_manager.get_available_models_friendly.return_value = [
+        mock_channel_manager.resolve_model_name.return_value = None
+        mock_channel_manager.get_available_models_friendly.return_value = [
             "Claude Sonnet 4",
             "GPT-5",
         ]

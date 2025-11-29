@@ -30,7 +30,7 @@ from app.api.dependencies import require_admin_access
 from app.core.name_mapping import get_friendly_model_name
 from app.models.database import APIKey, get_db_session
 from app.services.api_key_manager import APIKeyManager
-from app.services.platform_manager import platform_manager
+from app.services.channel_manager import channel_manager
 from app.services.session_manager import session_manager
 from app.services.usage_tracker import UsageTracker
 
@@ -559,8 +559,8 @@ async def admin_dashboard(
     db = get_db_session()
 
     # Get platform configurations
-    telegram_config = platform_manager.get_config("telegram")
-    internal_config = platform_manager.get_config("internal")
+    telegram_config = channel_manager.get_config("telegram")
+    internal_config = channel_manager.get_config("internal")
 
     # Get channel name mapping for statistics
     channels = APIKeyManager.list_all_channels(db)
@@ -598,7 +598,7 @@ async def admin_dashboard(
     for session in session_manager.sessions.values():
         is_active = not session.is_expired(5)
 
-        if session.platform == "telegram":
+        if session.channel_identifier == "telegram":
             telegram_stats["sessions"] += 1
             telegram_stats["messages"] += session.total_message_count
             if is_active:
@@ -708,20 +708,20 @@ async def admin_dashboard(
             },
         },
         400: {
-            "description": "Bad request - Invalid input or platform name already exists",
+            "description": "Bad request - Invalid input or channel_id already exists",
             "content": {
                 "application/json": {
                     "examples": {
-                        "platform_exists": {
-                            "summary": "Platform name already exists",
+                        "channel_exists": {
+                            "summary": "Channel ID already exists",
                             "value": {
-                                "detail": "Channel with platform name 'Internal-BI' already exists"
+                                "detail": "Channel with ID 'Internal-BI' already exists"
                             }
                         },
-                        "invalid_platform_name": {
-                            "summary": "Invalid platform name format",
+                        "invalid_channel_id": {
+                            "summary": "Invalid channel_id format",
                             "value": {
-                                "detail": "Platform name must be ASCII characters without spaces"
+                                "detail": "channel_id must be ASCII characters without spaces"
                             }
                         },
                         "invalid_quota": {
@@ -772,7 +772,7 @@ async def admin_dashboard(
                     "example": {
                         "detail": [
                             {
-                                "loc": ["body", "platform_name"],
+                                "loc": ["body", "channel_id"],
                                 "msg": "field required",
                                 "type": "value_error.missing"
                             }
@@ -1192,10 +1192,10 @@ async def get_channels(
             "content": {
                 "application/json": {
                     "examples": {
-                        "platform_exists": {
-                            "summary": "Platform name already exists (when changing platform_name)",
+                        "channel_exists": {
+                            "summary": "Channel ID already exists (when changing channel_id)",
                             "value": {
-                                "detail": "Platform name 'Internal-BI-v2' is already in use by another channel"
+                                "detail": "Channel ID 'Internal-BI-v2' is already in use by another channel"
                             }
                         },
                         "invalid_quota": {

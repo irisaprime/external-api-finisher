@@ -15,12 +15,12 @@ def mock_session():
     """Mock chat session"""
     session = Mock(spec=ChatSession)
     session.session_id = "test_session_123"
-    session.platform = "test-platform"
+    session.channel_identifier = "test-platform"
     session.current_model = "test-model"
     session.current_model_friendly = "Test Model"  # Add friendly name
     session.total_message_count = 5
     session.history = []
-    session.platform_config = {"rate_limit": 60, "max_history": 10}
+    session.channel_config = {"rate_limit": 60, "max_history": 10}
     session.get_recent_history = Mock(return_value=[])
 
     # Channel isolation fields
@@ -71,7 +71,7 @@ class TestProcessMessageSimple:
             mock_handle.return_value = "Test response"
 
             result = await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -97,7 +97,7 @@ class TestProcessMessageSimple:
         )
 
         result = await processor.process_message_simple(
-            platform_name="Internal-BI",
+            channel_identifier="Internal-BI",
             channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test",
@@ -121,7 +121,7 @@ class TestProcessMessageSimple:
         mock_session_mgr.check_rate_limit.return_value = False
 
         result = await processor.process_message_simple(
-            platform_name="Internal-BI",
+            channel_identifier="Internal-BI",
             channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test",
@@ -156,7 +156,7 @@ class TestProcessMessageSimple:
             mock_handle.return_value = "Command response"
 
             result = await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -185,7 +185,7 @@ class TestProcessMessageSimple:
             mock_handle.side_effect = Exception("Test error")
 
             result = await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -221,7 +221,7 @@ class TestProcessMessageSimple:
             mock_handle.return_value = "Response"
 
             await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -254,7 +254,7 @@ class TestProcessMessageSimple:
             mock_handle.return_value = "Response"
 
             await processor.process_message_simple(
-                platform_name="telegram",
+                channel_identifier="telegram",
                 channel_id=None,
                 api_key_id=None,
                 api_key_prefix=None,
@@ -269,7 +269,7 @@ class TestHandleChatSimple:
     """Tests for _handle_chat_simple method"""
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_simple_success(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session
@@ -288,7 +288,7 @@ class TestHandleChatSimple:
         mock_session.add_message.assert_any_call("assistant", "AI response")
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_simple_ai_service_error(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session
@@ -306,7 +306,7 @@ class TestHandleChatSimple:
         assert "در دسترس نیست" in result
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_simple_trims_history(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session
@@ -325,7 +325,7 @@ class TestHandleChatSimple:
         assert len(mock_session.history) == 10
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     async def test_handle_chat_simple_general_exception(
         self, mock_platform_mgr, processor, mock_session
     ):
@@ -357,7 +357,7 @@ class TestDatabasePersistence:
     """Tests for database message persistence in _handle_chat_simple"""
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     @patch("app.models.database.Message")
     async def test_handle_chat_simple_persists_to_db(
@@ -390,7 +390,7 @@ class TestDatabasePersistence:
         mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     @patch("app.models.database.Message")
     async def test_handle_chat_simple_db_error_continues(
@@ -435,7 +435,7 @@ class TestErrorLoggingEdgeCases:
         mock_session_mgr.get_or_create_session.side_effect = Exception("Fatal error")
 
         result = await processor.process_message_simple(
-            platform_name="Internal-BI",
+            channel_identifier="Internal-BI",
             channel_id=1,
             api_key_id=1,
             api_key_prefix="ak_test",
@@ -472,7 +472,7 @@ class TestErrorLoggingEdgeCases:
             mock_session_mgr.get_session.return_value = None
 
             result = await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -516,7 +516,7 @@ class TestProcessMessageSimpleEdgeCases:
             mock_handle.return_value = "Response"
 
             result = await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -551,7 +551,7 @@ class TestProcessMessageSimpleEdgeCases:
             mock_handle.return_value = "Response"
 
             result = await processor.process_message_simple(
-                platform_name="Internal-BI",
+                channel_identifier="Internal-BI",
                 channel_id=1,
                 api_key_id=1,
                 api_key_prefix="ak_test",
@@ -581,7 +581,7 @@ class TestLegacyProcessMessage:
 
     @pytest.mark.asyncio
     @patch("app.services.message_processor.session_manager")
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.command_processor")
     async def test_legacy_process_message_success(
         self, mock_cmd_proc, mock_platform_mgr, mock_session_mgr, processor, mock_session, legacy_incoming_message
@@ -603,7 +603,7 @@ class TestLegacyProcessMessage:
 
     @pytest.mark.asyncio
     @patch("app.services.message_processor.session_manager")
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     async def test_legacy_process_message_auth_failed(
         self, mock_platform_mgr, mock_session_mgr, processor, mock_session, legacy_incoming_message
     ):
@@ -621,7 +621,7 @@ class TestLegacyProcessMessage:
 
     @pytest.mark.asyncio
     @patch("app.services.message_processor.session_manager")
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     async def test_legacy_process_message_rate_limit(
         self, mock_platform_mgr, mock_session_mgr, processor, mock_session, legacy_incoming_message
     ):
@@ -638,7 +638,7 @@ class TestLegacyProcessMessage:
 
     @pytest.mark.asyncio
     @patch("app.services.message_processor.session_manager")
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.command_processor")
     async def test_legacy_process_message_command(
         self, mock_cmd_proc, mock_platform_mgr, mock_session_mgr, processor, mock_session, legacy_incoming_message
@@ -694,7 +694,7 @@ class TestHandleChatWithAttachments:
         return msg
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_with_image_attachment(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session, message_with_image
@@ -713,7 +713,7 @@ class TestHandleChatWithAttachments:
         assert call_args.kwargs["files"] == [{"Data": "SGVsbG8gV29ybGQ=", "MIMEType": "image/png"}]
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_image_without_text(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session, message_with_image
@@ -732,7 +732,7 @@ class TestHandleChatWithAttachments:
         assert call_args.kwargs["query"] == "این تصویر را توضیح بده؟"
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_trims_history(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session
@@ -754,7 +754,7 @@ class TestHandleChatWithAttachments:
         assert len(mock_session.history) == 10
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_ai_service_error(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session
@@ -776,7 +776,7 @@ class TestHandleChatWithAttachments:
         assert "Test message" in result
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     async def test_handle_chat_general_exception(
         self, mock_platform_mgr, processor, mock_session
     ):
@@ -793,7 +793,7 @@ class TestHandleChatWithAttachments:
         assert result != ""  # Should return some error message
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_no_attachments(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session
@@ -816,7 +816,7 @@ class TestHandleChatWithAttachments:
         assert call_args.kwargs["files"] == []
 
     @pytest.mark.asyncio
-    @patch("app.services.message_processor.platform_manager")
+    @patch("app.services.message_processor.channel_manager")
     @patch("app.services.message_processor.ai_client")
     async def test_handle_chat_attachment_without_data(
         self, mock_ai_client, mock_platform_mgr, processor, mock_session

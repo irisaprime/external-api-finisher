@@ -1,7 +1,7 @@
 [project]
 name = "arash-bot"
 version = "1.0.0"
-description = "Arash External API Service - Multi-platform AI chatbot with team-based access control"
+description = "Arash External API Service - Multi-platform AI chatbot with channel-based access control"
 authors = [
     {name = "Arash Team", email = "team@example.com"}
 ]

@@ -3,7 +3,7 @@
 
 .PHONY: help check-uv install run run-dev test lint format clean \
         migrate-up migrate-down migrate-status migrate-create \
-        db-teams db-keys db-team-create db-key-create demo-logging show-config
+        db-channels db-keys db-channel-create db-key-create demo-logging show-config
 
 # Detect uv location (allow override with UV=/path/to/uv)
 UV ?= $(shell which uv 2>/dev/null)
@@ -24,7 +24,7 @@ check-uv:
 # Default target
 help:
 	@echo "========================================================================"
-	@echo "Arash External API Service v1.1 - Essential Commands"
+	@echo "Arash External API Service v1.0 - Essential Commands"
 	@echo "========================================================================"
 	@echo ""
 	@echo "Package Manager: uv ($(UV))"
@@ -45,11 +45,11 @@ help:
 	@echo "  make migrate-status    Show migration status"
 	@echo "  make migrate-create    Create new migration"
 	@echo ""
-	@echo "[Team & API Key Management]"
-	@echo "  make db-teams          List all teams"
-	@echo "  make db-keys           List all API keys"
-	@echo "  make db-team-create    Create team: NAME=\"Team\" [DAILY=100] [MONTHLY=3000]"
-	@echo "  make db-key-create     Create API key: TEAM=<id> NAME=\"Key\" [LEVEL=user]"
+	@echo "[Channel & API Key Management]"
+	@echo "  make db-channels          List all channels"
+	@echo "  make db-keys              List all API keys"
+	@echo "  make db-channel-create    Create channel: NAME=\"Channel\" [DAILY=100] [MONTHLY=3000]"
+	@echo "  make db-key-create        Create API key: CHANNEL=<id> NAME=\"Key\""
 	@echo ""
 	@echo "[Logging]"
 	@echo "  make demo-logging   Run logging demo (timestamp modes)"
@@ -143,35 +143,34 @@ endif
 	@echo "[OK] Migration created"
 
 # ============================================================================
-# Team & API Key Management
+# Channel & API Key Management
 # ============================================================================
 
-db-teams: check-uv
-	@$(UV) run python scripts/manage_api_keys.py team list
+db-channels: check-uv
+	@$(UV) run python scripts/manage_api_keys.py channel list
 
 db-keys: check-uv
 	@$(UV) run python scripts/manage_api_keys.py key list
 
-db-team-create: check-uv
+db-channel-create: check-uv
 ifndef NAME
 	@echo "[ERROR] NAME is required"
-	@echo "Usage: make db-team-create NAME=\"Team\" [DAILY=100] [MONTHLY=3000]"
+	@echo "Usage: make db-channel-create NAME=\"Channel\" [DAILY=100] [MONTHLY=3000]"
 	@exit 1
 endif
-	$(UV) run python scripts/manage_api_keys.py team create "$(NAME)" \
+	$(UV) run python scripts/manage_api_keys.py channel create "$(NAME)" \
 		$(if $(DAILY),--daily-quota $(DAILY)) \
 		$(if $(MONTHLY),--monthly-quota $(MONTHLY))
 
 db-key-create: check-uv
-ifndef TEAM
-	@echo "[ERROR] TEAM and NAME are required"
-	@echo "Usage: make db-key-create TEAM=<id> NAME=\"Key\" [LEVEL=user]"
+ifndef CHANNEL
+	@echo "[ERROR] CHANNEL and NAME are required"
+	@echo "Usage: make db-key-create CHANNEL=<id> NAME=\"Key\""
 	@exit 1
 endif
 ifndef NAME
 	@echo "[ERROR] NAME is required"
-	@echo "Usage: make db-key-create TEAM=<id> NAME=\"Key\" [LEVEL=user]"
+	@echo "Usage: make db-key-create CHANNEL=<id> NAME=\"Key\""
 	@exit 1
 endif
-	$(UV) run python scripts/manage_api_keys.py key create $(TEAM) "$(NAME)" \
-		$(if $(LEVEL),--level $(LEVEL))
+	$(UV) run python scripts/manage_api_keys.py key create $(CHANNEL) "$(NAME)"

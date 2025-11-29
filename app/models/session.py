@@ -13,16 +13,16 @@ class ChatSession(BaseModel):
     Chat session model with channel isolation.
 
     Architecture:
-    - One conversation per user per platform/channel (no conversation_id)
-    - session_id format: "platform:channel_id:user_id" or "platform:user_id"
+    - One conversation per user per channel (no conversation_id)
+    - session_id format: "channel_identifier:channel_id:user_id" or "channel_identifier:user_id"
     - total_message_count tracks ALL messages ever (persists through /clear)
     - history is in-memory cache (resets after /clear, server restart)
     - Actual messages stored in database
     """
 
     session_id: str
-    platform: str
-    platform_config: Dict[str, Any]
+    channel_identifier: str  # e.g., "telegram", "Internal-BI", "HOSCO-Popak"
+    channel_config: Dict[str, Any]  # Channel configuration dict
     user_id: str
     current_model: str
     history: List[Dict[str, str]] = Field(
