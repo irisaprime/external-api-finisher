@@ -50,8 +50,8 @@ class CommandProcessor:
         return command, args
 
     def can_use_command(self, command: str, channel_identifier: str) -> bool:
-        """Check if platform can use command"""
-        allowed_commands = channel_manager.get_allowed_commands(platform)
+        """Check if channel can use command"""
+        allowed_commands = channel_manager.get_allowed_commands(channel_identifier)
         return command in allowed_commands
 
     async def process_command(self, session: ChatSession, text: str) -> str:
@@ -61,12 +61,12 @@ class CommandProcessor:
         if not command:
             return MESSAGES_FA["command_unknown"].format(command="")
 
-        # Check if command is allowed for platform
+        # Check if command is allowed for channel
         if not self.can_use_command(command, session.channel_identifier):
             allowed = channel_manager.get_allowed_commands(session.channel_identifier)
             commands_list = "\n".join([f"• /{c}" for c in allowed])
             return MESSAGES_FA["command_not_available_platform"].format(
-                command=command, channel_identifier=session.channel_identifier.title(), commands=commands_list
+                command=command, platform=session.channel_identifier.title(), commands=commands_list
             )
 
         # Execute command
