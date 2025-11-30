@@ -31,13 +31,13 @@ class APIKeyManager:
             - key_prefix: First 8 characters for identification
         """
         # Generate a secure random key (32 bytes = 64 hex characters)
-        api_key = f"ak_{secrets.token_urlsafe(32)}"
+        api_key = f"ark_{secrets.token_urlsafe(32)}"
 
         # Create SHA256 hash for storage
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
         # Extract prefix for identification
-        key_prefix = api_key[:12]  # "ak_" + first 8 chars
+        key_prefix = api_key[:12]  # "ark_" + first 8 chars
 
         return api_key, key_hash, key_prefix
 

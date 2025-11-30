@@ -41,7 +41,7 @@ class UsageTracker:
             api_key_id: API key ID
             channel_id: Channel ID
             session_id: Session identifier (masked)
-            platform: Platform name
+            channel_identifier: Channel identifier
             model_used: Model name (will be converted to friendly name)
             success: Whether the request was successful
             response_time_ms: Response time in milliseconds

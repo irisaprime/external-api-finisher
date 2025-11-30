@@ -23,29 +23,35 @@ class MessageProcessor:
     """Processes messages with channel-aware logic"""
 
     async def process_message(self, message: IncomingMessage) -> BotResponse:
-        """Process incoming message with channel isolation"""
+        """
+        Process incoming message with channel isolation (LEGACY METHOD).
+
+        This method is kept for backward compatibility and testing.
+        For new code, use process_message_simple() instead.
+        """
 
         try:
             # Extract channel info from metadata (set by API endpoint)
-            channel_id = message.metadata.get("channel_id")
-            api_key_id = message.metadata.get("api_key_id")
-            api_key_prefix = message.metadata.get("api_key_prefix")
+            channel_id = message.metadata.get("channel_id") if hasattr(message, "metadata") else None
+            api_key_id = message.metadata.get("api_key_id") if hasattr(message, "metadata") else None
+            api_key_prefix = message.metadata.get("api_key_prefix") if hasattr(message, "metadata") else None
+
+            # Support both legacy (platform) and new (channel_identifier) field names
+            channel_identifier = getattr(message, "channel_identifier", None) or getattr(message, "platform", "telegram")
 
             # Get or create session with channel isolation
             session = session_manager.get_or_create_session(
-                platform=message.platform,
+                channel_identifier=channel_identifier,
                 user_id=message.user_id,
-                conversation_id=message.conversation_id,
                 channel_id=channel_id,
                 api_key_id=api_key_id,
                 api_key_prefix=api_key_prefix,
             )
 
             # Check authentication if required
-            if channel_manager.requires_auth(message.platform):
-                if not message.auth_token or not channel_manager.validate_auth(
-                    message.platform, message.auth_token
-                ):
+            if channel_manager.requires_auth(channel_identifier):
+                auth_token = getattr(message, "auth_token", None)
+                if not auth_token or not channel_manager.validate_auth(channel_identifier, auth_token):
                     return BotResponse(
                         success=False,
                         error="authentication_failed",
@@ -53,8 +59,8 @@ class MessageProcessor:
                     )
 
             # Check rate limit
-            if not session_manager.check_rate_limit(message.platform, message.user_id):
-                rate_limit = channel_manager.get_rate_limit(message.platform)
+            if not session_manager.check_rate_limit(channel_identifier, message.user_id):
+                rate_limit = channel_manager.get_rate_limit(channel_identifier)
                 return BotResponse(
                     success=False,
                     error="rate_limit",

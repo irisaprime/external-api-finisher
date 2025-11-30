@@ -1,176 +1,104 @@
 # Arash External API Service - Makefile
-# Essential commands for development and deployment (using uv)
 
-.PHONY: help check-uv install run run-dev test lint format clean \
+.PHONY: help install run run-dev test lint format clean \
         migrate-up migrate-down migrate-status migrate-create \
-        db-channels db-keys db-channel-create db-key-create demo-logging show-config
+        db-channels db-keys db-channel-create db-key-create
 
-# Detect uv location (allow override with UV=/path/to/uv)
 UV ?= $(shell which uv 2>/dev/null)
 
-# Check if uv is available
-check-uv:
-	@if ! command -v $(UV) >/dev/null 2>&1; then \
-		echo "[ERROR] uv not found!"; \
-		echo ""; \
-		echo "Please install uv:"; \
-		echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"; \
-		echo ""; \
-		echo "Or override uv location:"; \
-		echo "  make test UV=/path/to/uv"; \
-		exit 1; \
-	fi
-
-# Default target
 help:
-	@echo "========================================================================"
-	@echo "Arash External API Service v1.0 - Essential Commands"
-	@echo "========================================================================"
+	@echo "Arash External API v1.0"
 	@echo ""
-	@echo "Package Manager: uv ($(UV))"
+	@echo "Development:"
+	@echo "  make install     Install dependencies"
+	@echo "  make run         Start service (production)"
+	@echo "  make run-dev     Start with auto-reload"
+	@echo "  make test        Run tests"
+	@echo "  make lint        Check code quality"
+	@echo "  make format      Format code"
+	@echo "  make clean       Remove cache"
 	@echo ""
-	@echo "[Development]"
-	@echo "  make install        Install dependencies"
-	@echo "  make run            Run application (port 3000)"
-	@echo "  make run-dev        Run with auto-reload (development)"
-	@echo "  make test           Run test suite"
-	@echo "  make lint           Check code quality (ruff)"
-	@echo "  make format         Format code (black)"
-	@echo "  make clean          Remove cache files"
-	@echo "  make show-config    Show current configuration"
+	@echo "Database:"
+	@echo "  make migrate-up           Apply migrations"
+	@echo "  make migrate-down         Rollback"
+	@echo "  make migrate-status       Show status"
+	@echo "  make migrate-create MSG=\"description\""
 	@echo ""
-	@echo "[Database Migrations]"
-	@echo "  make migrate-up        Apply pending migrations"
-	@echo "  make migrate-down      Rollback last migration"
-	@echo "  make migrate-status    Show migration status"
-	@echo "  make migrate-create    Create new migration"
-	@echo ""
-	@echo "[Channel & API Key Management]"
-	@echo "  make db-channels          List all channels"
-	@echo "  make db-keys              List all API keys"
-	@echo "  make db-channel-create    Create channel: NAME=\"Channel\" [DAILY=100] [MONTHLY=3000]"
-	@echo "  make db-key-create        Create API key: CHANNEL=<id> NAME=\"Key\""
-	@echo ""
-	@echo "[Logging]"
-	@echo "  make demo-logging   Run logging demo (timestamp modes)"
-	@echo ""
-	@echo "For full documentation, see README.md"
+	@echo "Channels:"
+	@echo "  make db-channels          List channels"
+	@echo "  make db-keys              List API keys"
+	@echo "  make db-channel-create NAME=\"Ch\" [DAILY=100] [MONTHLY=3000]"
+	@echo "  make db-key-create CHANNEL=<id> NAME=\"Key\""
 	@echo ""
 
-# ============================================================================
 # Development
-# ============================================================================
-
-install: check-uv
-	@echo "[Installing dependencies with uv...]"
+install:
+	@command -v $(UV) >/dev/null || (echo "ERROR: uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh" && exit 1)
 	$(UV) sync --all-extras
 
-run: check-uv
-	@echo "[Starting Arash API Service...]"
-	@echo "API: http://localhost:3000"
-	@echo "Docs: http://localhost:3000/docs"
+run:
 	$(UV) run uvicorn app.main:app --host 0.0.0.0 --port 3000
 
-run-dev: check-uv
-	@echo "[Starting Arash API Service (Development Mode)...]"
-	@echo "API: http://localhost:3000"
-	@echo "Docs: http://localhost:3000/docs"
-	@echo "Auto-reload: Enabled"
+run-dev:
 	$(UV) run uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 
-test: check-uv
-	@echo "[Running tests...]"
+test:
 	$(UV) run pytest -v
 
-lint: check-uv
-	@echo "[Checking code quality...]"
+lint:
 	$(UV) run ruff check app/ tests/
 
-format: check-uv
-	@echo "[Formatting code...]"
+format:
 	$(UV) run black app/ tests/
 
 clean:
-	@echo "[Cleaning cache...]"
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-	@echo "[OK] Cache cleaned"
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete
 
-show-config: check-uv
-	@echo "[Current Configuration]"
-	@echo "Environment: $$(grep '^ENVIRONMENT=' .env | cut -d'=' -f2)"
-	@echo "Log Level: $$(grep '^LOG_LEVEL=' .env | cut -d'=' -f2)"
-	@echo "Log Timestamp: $$(grep '^LOG_TIMESTAMP=' .env | cut -d'=' -f2)"
-	@echo "API Docs: $$(grep '^ENABLE_API_DOCS=' .env | cut -d'=' -f2)"
-	@echo "Database: $$(grep '^DB_NAME=' .env | cut -d'=' -f2)"
-	@echo "DB Host: $$(grep '^DB_HOST=' .env | cut -d'=' -f2)"
-
-demo-logging:
-	@echo "[Running Logging Demo...]"
-	python3 demo_timestamp_modes.py
-
-# ============================================================================
 # Database Migrations
-# ============================================================================
-
-migrate-up: check-uv
-	@echo "[Applying migrations...]"
+migrate-up:
 	$(UV) run alembic upgrade head
-	@echo "[OK] Migrations applied"
 
-migrate-down: check-uv
-	@echo "[Rolling back last migration...]"
+migrate-down:
 	$(UV) run alembic downgrade -1
-	@echo "[OK] Migration rolled back"
 
-migrate-status: check-uv
-	@echo "[Migration Status]"
+migrate-status:
 	@$(UV) run alembic current
 	@echo ""
-	@echo "[Migration History]"
 	@$(UV) run alembic history
 
-migrate-create: check-uv
+migrate-create:
 ifndef MSG
-	@echo "[ERROR] MSG is required"
-	@echo "Usage: make migrate-create MSG=\"Description of migration\""
+	@echo "ERROR: MSG required. Usage: make migrate-create MSG=\"description\""
 	@exit 1
 endif
-	@echo "[Creating new migration: $(MSG)]"
 	$(UV) run alembic revision --autogenerate -m "$(MSG)"
-	@echo "[OK] Migration created"
 
-# ============================================================================
 # Channel & API Key Management
-# ============================================================================
-
-db-channels: check-uv
+db-channels:
 	@$(UV) run python scripts/manage_api_keys.py channel list
 
-db-keys: check-uv
+db-keys:
 	@$(UV) run python scripts/manage_api_keys.py key list
 
-db-channel-create: check-uv
+db-channel-create:
 ifndef NAME
-	@echo "[ERROR] NAME is required"
-	@echo "Usage: make db-channel-create NAME=\"Channel\" [DAILY=100] [MONTHLY=3000]"
+	@echo "ERROR: NAME required. Usage: make db-channel-create NAME=\"Channel\" [DAILY=100] [MONTHLY=3000]"
 	@exit 1
 endif
 	$(UV) run python scripts/manage_api_keys.py channel create "$(NAME)" \
 		$(if $(DAILY),--daily-quota $(DAILY)) \
 		$(if $(MONTHLY),--monthly-quota $(MONTHLY))
 
-db-key-create: check-uv
+db-key-create:
 ifndef CHANNEL
-	@echo "[ERROR] CHANNEL and NAME are required"
-	@echo "Usage: make db-key-create CHANNEL=<id> NAME=\"Key\""
+	@echo "ERROR: CHANNEL required. Usage: make db-key-create CHANNEL=<id> NAME=\"Key\""
 	@exit 1
 endif
 ifndef NAME
-	@echo "[ERROR] NAME is required"
-	@echo "Usage: make db-key-create CHANNEL=<id> NAME=\"Key\""
+	@echo "ERROR: NAME required. Usage: make db-key-create CHANNEL=<id> NAME=\"Key\""
 	@exit 1
 endif
 	$(UV) run python scripts/manage_api_keys.py key create $(CHANNEL) "$(NAME)"

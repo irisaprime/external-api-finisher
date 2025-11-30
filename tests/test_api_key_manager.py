@@ -20,7 +20,7 @@ class TestAPIKeyGeneration:
         """Test API key generation returns correct format"""
         api_key, key_hash, key_prefix = APIKeyManager.generate_api_key()
 
-        assert api_key.startswith("ak_")
+        assert api_key.startswith("ark_")
         assert len(api_key) > 40
         assert key_prefix == api_key[:12]
         assert len(key_hash) == 64
@@ -37,7 +37,7 @@ class TestAPIKeyGeneration:
 
     def test_hash_key(self):
         """Test hashing an API key"""
-        test_key = "ak_testkey12345"
+        test_key = "ark_testkey12345"
         hashed = APIKeyManager.hash_key(test_key)
 
         assert len(hashed) == 64
@@ -45,7 +45,7 @@ class TestAPIKeyGeneration:
 
     def test_hash_key_consistency(self):
         """Test that hashing the same key produces the same hash"""
-        test_key = "ak_testkey12345"
+        test_key = "ark_testkey12345"
         hash1 = APIKeyManager.hash_key(test_key)
         hash2 = APIKeyManager.hash_key(test_key)
 
@@ -70,7 +70,7 @@ class TestChannelManagement:
         assert channel.monthly_quota == 150000
         assert channel.daily_quota == 7500
 
-        assert api_key_string.startswith("ak_")
+        assert api_key_string.startswith("ark_")
 
         keys = APIKeyManager.list_channel_api_keys(db=test_db, channel_id=channel.id)
         assert len(keys) == 1
@@ -278,7 +278,7 @@ class TestAPIKeyManagement:
             daily_quota=2500,
         )
 
-        assert api_key_string.startswith("ak_")
+        assert api_key_string.startswith("ark_")
         assert api_key.id is not None
         assert api_key.name == "Test Key"
         assert api_key.channel_id == test_channel.id
@@ -313,7 +313,7 @@ class TestAPIKeyManagement:
 
     def test_validate_api_key_invalid(self, test_db: Session):
         """Test validating an invalid API key returns None"""
-        validated_key = APIKeyManager.validate_api_key(db=test_db, api_key="ak_invalid_key_12345")
+        validated_key = APIKeyManager.validate_api_key(db=test_db, api_key="ark_invalid_key_12345")
 
         assert validated_key is None
 

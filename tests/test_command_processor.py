@@ -26,8 +26,8 @@ def telegram_session():
     """Create Telegram session for testing"""
     return ChatSession(
         session_id="test_session_telegram",
-        platform="telegram",
-        platform_config={
+        channel_identifier="telegram",
+        channel_config={
             "type": "public",
             "rate_limit": 20,
             "max_history": 10,
@@ -38,7 +38,6 @@ def telegram_session():
             ],
         },
         user_id="telegram_user_123",
-        conversation_id="telegram_chat_456",
         current_model="google/gemini-2.0-flash-001",
         is_admin=False,
     )
@@ -49,8 +48,8 @@ def internal_session():
     """Create internal session for testing"""
     return ChatSession(
         session_id="test_session_internal",
-        platform="internal",
-        platform_config={
+        channel_identifier="internal",
+        channel_config={
             "type": "private",
             "rate_limit": 60,
             "max_history": 20,
@@ -62,7 +61,6 @@ def internal_session():
             ],
         },
         user_id="internal_user_789",
-        conversation_id="internal_chat_012",
         current_model="anthropic/claude-sonnet-4-5",
         is_admin=True,
     )
