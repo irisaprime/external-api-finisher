@@ -6,6 +6,97 @@ Multi-platform AI chatbot service with channel-based access control.
 
 ---
 
+## System Overview
+
+### Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "External Clients"
+        TG[Telegram Users]
+        CH[Custom Channels]
+        ADMIN[Super Admins]
+    end
+
+    subgraph "FastAPI Application"
+        API[API Router]
+        AUTH[Authentication]
+        SESS[Session Manager]
+        PROC[Message Processor]
+        USAGE[Usage Tracker]
+    end
+
+    subgraph "Data Layer"
+        PG[(PostgreSQL)]
+        MEM[In-Memory Sessions]
+    end
+
+    subgraph "External Services"
+        AI[AI Service<br/>Multi-Model Router]
+    end
+
+    TG -->|Telegram Service Key| API
+    CH -->|Channel API Keys| API
+    ADMIN -->|Super Admin Keys| API
+
+    API --> AUTH
+    AUTH --> SESS
+    SESS --> MEM
+    SESS --> PROC
+    PROC --> AI
+    PROC --> USAGE
+    USAGE --> PG
+    MEM -.periodic sync.-> PG
+
+    style TG fill:#e1f5ff
+    style CH fill:#e1f5ff
+    style ADMIN fill:#ffe1e1
+    style API fill:#fff4e1
+    style AI fill:#e8f5e9
+    style PG fill:#f3e5f5
+```
+
+### Request Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI Router
+    participant Auth as Authentication
+    participant Session as Session Manager
+    participant Processor as Message Processor
+    participant AI as AI Service
+    participant DB as PostgreSQL
+
+    Client->>API: POST /v1/chat<br/>{user_id, text}<br/>Authorization: Bearer key
+
+    API->>Auth: Validate API Key
+    Auth->>DB: Check api_keys table
+    DB-->>Auth: Channel + Key Info
+    Auth-->>API: APIKey object
+
+    API->>Session: Get/Create Session<br/>channel:id:user_id
+    Session->>DB: Load message history
+    DB-->>Session: Previous messages
+    Session-->>API: Session object
+
+    API->>Processor: Process message
+
+    alt Command (e.g., /clear, /model)
+        Processor-->>Client: Command response
+    else Chat Message
+        Processor->>AI: Send with context
+        AI-->>Processor: AI response
+        Processor->>DB: Log usage + message
+        Processor->>Session: Update session
+        Processor-->>Client: BotResponse
+    end
+
+    Note over Client,DB: Rate limiting, quota checks,<br/>and error handling at each step
+```
+
+---
+
 ## Architecture
 
 ```
