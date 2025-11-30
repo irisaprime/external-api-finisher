@@ -6,30 +6,47 @@ from enum import Enum
 
 
 class Platform(str, Enum):
-    """Supported messaging platforms"""
+    """
+    Supported messaging platforms for the AI chatbot service.
 
-    TELEGRAM = "telegram"
-    INTERNAL = "internal"
+    Platforms determine routing, configuration, and feature availability for users.
+    Each platform has distinct characteristics for model access, rate limiting, and commands.
+    """
+
+    TELEGRAM = "telegram"  # Public Telegram bot - open access with limited features
+    INTERNAL = "internal"  # Private internal channels - enterprise features and multiple models
 
 
 class MessageType(str, Enum):
-    """Types of messages"""
+    """
+    Types of messages that can be processed by the chat service.
 
-    TEXT = "text"
-    IMAGE = "image"
-    DOCUMENT = "document"
-    VOICE = "voice"
-    VIDEO = "video"
-    STICKER = "sticker"
-    LOCATION = "location"
-    COMMAND = "command"
+    These types define the content format and determine how messages are handled
+    and routed to the AI service. Some types may require special processing or
+    validation before being sent to the AI model.
+    """
+
+    TEXT = "text"            # Plain text message - standard chat input
+    IMAGE = "image"          # Image attachment - may be processed with vision models
+    DOCUMENT = "document"    # Document file (PDF, DOC, etc.) - attachment metadata only
+    VOICE = "voice"          # Voice message - audio file that may need transcription
+    VIDEO = "video"          # Video attachment - metadata and potentially frame extraction
+    STICKER = "sticker"      # Sticker or emoji - typically metadata only
+    LOCATION = "location"    # Geographic location data - lat/long coordinates
+    COMMAND = "command"      # Bot command (e.g., /start, /help) - triggers special handling
 
 
 class PlatformType(str, Enum):
-    """Platform access types"""
+    """
+    Platform access control types defining visibility and feature sets.
 
-    PUBLIC = "public"
-    PRIVATE = "private"
+    Access types determine the security model, available features, and isolation level:
+    - PUBLIC: Open access platforms with limited features (e.g., Telegram, Discord)
+    - PRIVATE: Restricted access with enterprise features (e.g., customer integrations, internal channels)
+    """
+
+    PUBLIC = "public"    # Open access - limited models, basic features, public-facing
+    PRIVATE = "private"  # Restricted access - full features, multiple models, isolated environments
 
 
 # Model Aliases for easier switching
