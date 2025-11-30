@@ -88,50 +88,128 @@ class ChannelCreate(BaseModel):
 
     title: Optional[str] = Field(
         None,
-        description="Human-friendly display name (supports Persian/Farsi). Defaults to channel_id if not provided.",
+        min_length=1,
+        max_length=200,
+        description=(
+            "Human-friendly display name for the channel (supports Persian/Farsi and multilingual text). "
+            "Used in admin UI, reports, and logs for easy identification. "
+            "If not provided, defaults to channel_id value. "
+            "Examples: 'تیم هوش مصنوعی داخلی', 'Internal BI Team', 'Marketing Platform'"
+        ),
         examples=["تیم هوش مصنوعی داخلی", "Internal BI Team", "پلتفرم بازاریابی"],
     )
     channel_id: str = Field(
         ...,
-        description="System identifier for routing (ASCII, no spaces, e.g., 'Internal-BI', 'External-Marketing')",
-        examples=["Internal-BI", "External-Marketing", "Data-Analytics"],
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description=(
+            "Unique system identifier for routing and session isolation (ASCII only, no spaces). "
+            "Used internally for session keys, logging, and API routing. "
+            "Must be unique across all channels. "
+            "Recommended format: PascalCase or kebab-case (e.g., 'Internal-BI', 'External-Marketing'). "
+            "Cannot be changed after creation without breaking existing sessions."
+        ),
+        examples=["Internal-BI", "External-Marketing", "Data-Analytics", "Customer-Support"],
     )
     access_type: str = Field(
         "private",
-        description="Platform type: 'public' (Telegram, Discord) or 'private' (customer integrations)",
+        pattern=r"^(public|private)$",
+        description=(
+            "Platform access control type determining feature set and visibility. "
+            "'public': Open access platforms (e.g., Telegram, Discord) with limited models and basic features. "
+            "'private': Restricted access channels (e.g., customer integrations, internal teams) with full features, "
+            "multiple AI models, and enterprise capabilities. "
+            "Affects default configurations for rate limits, models, and commands."
+        ),
         examples=["private", "public"],
     )
     monthly_quota: Optional[int] = Field(
-        None, description="Monthly request quota (None = unlimited)", examples=[100000, None]
+        None,
+        ge=0,
+        description=(
+            "Maximum number of requests allowed per calendar month for this channel. "
+            "None or 0 = unlimited (use with caution). "
+            "When exceeded, all requests return quota_exceeded error. "
+            "Resets on the 1st of each month. "
+            "Tracked across all users in this channel."
+        ),
+        examples=[100000, 50000, None],
     )
     daily_quota: Optional[int] = Field(
-        None, description="Daily request quota (None = unlimited)", examples=[5000, None]
+        None,
+        ge=0,
+        description=(
+            "Maximum number of requests allowed per day (UTC) for this channel. "
+            "None or 0 = unlimited (use with caution). "
+            "When exceeded, all requests return quota_exceeded error. "
+            "Resets daily at 00:00 UTC. "
+            "Tracked across all users in this channel."
+        ),
+        examples=[5000, 2000, None],
     )
 
     # Platform configuration overrides (NULL = use defaults for access_type)
     rate_limit: Optional[int] = Field(
         None,
-        description="Override default rate limit (requests/min). NULL = use access_type default",
-        examples=[20, 60, None],
+        ge=1,
+        le=1000,
+        description=(
+            "Override default rate limit in requests per minute per user. "
+            "None = use access_type default (typically 20 for public, 60 for private). "
+            "Prevents abuse by limiting how many messages a single user can send per minute. "
+            "Tracked per user_id within this channel. "
+            "Recommended: 20-60 for most use cases, higher for high-volume automation."
+        ),
+        examples=[20, 60, 80, None],
     )
     max_history: Optional[int] = Field(
         None,
-        description="Override default max conversation history. NULL = use access_type default",
-        examples=[10, 30, None],
+        ge=1,
+        le=100,
+        description=(
+            "Override maximum conversation history length (number of messages). "
+            "None = use access_type default (typically 10 for public, 30 for private). "
+            "Determines how many recent messages are sent to the AI model for context. "
+            "Longer history = better context but higher token usage and costs. "
+            "Messages beyond this limit are excluded from AI context but kept in database."
+        ),
+        examples=[10, 30, 50, None],
     )
     default_model: Optional[str] = Field(
         None,
-        description="Override default AI model. NULL = use access_type default",
-        examples=["openai/gpt-5-chat", "google/gemini-2.0-flash-001", None],
+        description=(
+            "Override default AI model (technical ID format: 'provider/model-name'). "
+            "None = use access_type default (typically 'google/gemini-2.0-flash-001' for public). "
+            "This is the model users will use unless they switch with /model command. "
+            "Must be in the available_models list. "
+            "Examples: 'openai/gpt-5-chat', 'anthropic/claude-4.1', 'google/gemini-2.0-flash-001'"
+        ),
+        examples=["openai/gpt-5-chat", "google/gemini-2.0-flash-001", "anthropic/claude-4.1", None],
     )
     available_models: Optional[List[str]] = Field(
         None,
-        description="Override available models list. NULL = use access_type default",
-        examples=[["openai/gpt-5-chat", "google/gemini-2.0-flash-001"], None],
+        description=(
+            "Override list of available AI models (technical IDs). "
+            "None = use access_type default. "
+            "Users can switch between these models using the /model command (if allow_model_switch=true). "
+            "Format: ['provider/model-name', ...]. "
+            "Public channels typically have 1-2 models, private channels may have 5-10+."
+        ),
+        examples=[
+            ["openai/gpt-5-chat", "google/gemini-2.0-flash-001"],
+            ["anthropic/claude-4.1", "openai/gpt-5-chat", "google/gemini-2.5-flash-001"],
+            None,
+        ],
     )
     allow_model_switch: Optional[bool] = Field(
         None,
-        description="Override model switching permission. NULL = use access_type default",
+        description=(
+            "Override whether users can switch AI models using /model command. "
+            "None = use access_type default (typically False for public, True for private). "
+            "If True, users can use '/model <alias>' to switch between available_models. "
+            "If False, /model command is disabled and users are locked to default_model."
+        ),
         examples=[True, False, None],
     )
 
@@ -173,21 +251,88 @@ class ChannelUpdate(BaseModel):
         }
     )
 
-    title: Optional[str] = Field(None, examples=["Internal BI Team"])
-    channel_id: Optional[str] = Field(None, examples=["Internal-BI-Updated"])
-    access_type: Optional[str] = Field(None, examples=["private", "public"])
-    monthly_quota: Optional[int] = Field(None, examples=[150000])
-    daily_quota: Optional[int] = Field(None, examples=[7000])
-    is_active: Optional[bool] = Field(None, examples=[True, False])
+    title: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=200,
+        description="Update the human-friendly display name (supports Persian/Farsi). Leave null to keep existing value.",
+        examples=["Internal BI Team", "Updated Marketing Platform"],
+    )
+    channel_id: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description=(
+            "Update the system identifier for routing (ASCII only, no spaces). "
+            "WARNING: Changing this will break existing sessions and API integrations. "
+            "Leave null to keep existing value."
+        ),
+        examples=["Internal-BI-Updated", "New-Channel-ID"],
+    )
+    access_type: Optional[str] = Field(
+        None,
+        pattern=r"^(public|private)$",
+        description=(
+            "Update the platform access type ('public' or 'private'). "
+            "Changing this affects default configurations but won't override explicitly set values. "
+            "Leave null to keep existing value."
+        ),
+        examples=["private", "public"],
+    )
+    monthly_quota: Optional[int] = Field(
+        None,
+        ge=0,
+        description="Update monthly request quota. Set to 0 or very high value for unlimited. Leave null to keep existing value.",
+        examples=[150000, 200000, 0],
+    )
+    daily_quota: Optional[int] = Field(
+        None,
+        ge=0,
+        description="Update daily request quota. Set to 0 or very high value for unlimited. Leave null to keep existing value.",
+        examples=[7000, 10000, 0],
+    )
+    is_active: Optional[bool] = Field(
+        None,
+        description=(
+            "Enable or disable the channel. "
+            "Inactive channels (is_active=false) cannot process any requests and return 403 errors. "
+            "Used for temporarily suspending access without deleting the channel. "
+            "Leave null to keep existing value."
+        ),
+        examples=[True, False],
+    )
 
     # Platform configuration overrides
-    rate_limit: Optional[int] = Field(None, examples=[60, 80, None])
-    max_history: Optional[int] = Field(None, examples=[30, 25, None])
-    default_model: Optional[str] = Field(None, examples=["openai/gpt-5-chat", None])
-    available_models: Optional[List[str]] = Field(
-        None, examples=[["openai/gpt-5-chat", "anthropic/claude-4.1"], None]
+    rate_limit: Optional[int] = Field(
+        None,
+        ge=1,
+        le=1000,
+        description="Update rate limit (requests/min per user). Set to null to reset to access_type default. Leave unchanged if not provided.",
+        examples=[60, 80, 100],
     )
-    allow_model_switch: Optional[bool] = Field(None, examples=[True, False, None])
+    max_history: Optional[int] = Field(
+        None,
+        ge=1,
+        le=100,
+        description="Update max conversation history length. Set to null to reset to access_type default. Leave unchanged if not provided.",
+        examples=[30, 25, 40],
+    )
+    default_model: Optional[str] = Field(
+        None,
+        description="Update default AI model. Set to null to reset to access_type default. Must be in available_models list.",
+        examples=["openai/gpt-5-chat", "google/gemini-2.5-flash-001"],
+    )
+    available_models: Optional[List[str]] = Field(
+        None,
+        description="Update available models list. Set to null to reset to access_type default. Must include default_model.",
+        examples=[["openai/gpt-5-chat", "anthropic/claude-4.1"], ["google/gemini-2.5-flash-001"]],
+    )
+    allow_model_switch: Optional[bool] = Field(
+        None,
+        description="Update model switching permission. Set to null to reset to access_type default.",
+        examples=[True, False],
+    )
 
 
 class ChannelResponse(BaseModel):
@@ -240,30 +385,97 @@ class ChannelResponse(BaseModel):
         },
     )
 
-    id: int = Field(..., examples=[1])
-    title: str = Field(..., examples=["Internal BI Team"])
-    channel_id: str = Field(..., examples=["Internal-BI"])
-    access_type: str = Field(..., examples=["private", "public"])
-    monthly_quota: Optional[int] = Field(None, examples=[100000])
-    daily_quota: Optional[int] = Field(None, examples=[5000])
-    is_active: bool = Field(..., examples=[True])
+    id: int = Field(
+        ...,
+        description="Unique database identifier for the channel (auto-generated, immutable)",
+        examples=[1, 2, 42],
+        gt=0,
+    )
+    title: str = Field(
+        ...,
+        description="Human-friendly display name (supports Persian/Farsi). Used in admin UI and reports.",
+        examples=["Internal BI Team", "تیم هوش مصنوعی", "Marketing Platform"],
+    )
+    channel_id: str = Field(
+        ...,
+        description="System identifier for routing and session isolation (ASCII, unique, immutable)",
+        examples=["Internal-BI", "External-Marketing"],
+    )
+    access_type: str = Field(
+        ...,
+        description="Platform access type: 'public' (limited features) or 'private' (full features)",
+        examples=["private", "public"],
+    )
+    monthly_quota: Optional[int] = Field(
+        None,
+        description="Monthly request limit. None = unlimited.",
+        examples=[100000, None],
+    )
+    daily_quota: Optional[int] = Field(
+        None,
+        description="Daily request limit. None = unlimited.",
+        examples=[5000, None],
+    )
+    is_active: bool = Field(
+        ...,
+        description="Whether the channel is active. Inactive channels cannot process requests.",
+        examples=[True, False],
+    )
 
     # Platform configuration (NULL = using defaults for access_type)
-    rate_limit: Optional[int] = Field(None, examples=[60, 80, None])
-    max_history: Optional[int] = Field(None, examples=[30, 25, None])
-    default_model: Optional[str] = Field(None, examples=["openai/gpt-5-chat", None])
-    available_models: Optional[List[str]] = Field(
-        None, examples=[["openai/gpt-5-chat", "google/gemini-2.0-flash-001"], None]
+    rate_limit: Optional[int] = Field(
+        None,
+        description="Rate limit override (requests/min per user). None = using access_type default.",
+        examples=[60, 80, None],
     )
-    allow_model_switch: Optional[bool] = Field(None, examples=[True, False, None])
+    max_history: Optional[int] = Field(
+        None,
+        description="Max history override (number of messages). None = using access_type default.",
+        examples=[30, 25, None],
+    )
+    default_model: Optional[str] = Field(
+        None,
+        description="Default AI model override. None = using access_type default.",
+        examples=["openai/gpt-5-chat", None],
+    )
+    available_models: Optional[List[str]] = Field(
+        None,
+        description="Available models override. None = using access_type default.",
+        examples=[["openai/gpt-5-chat", "google/gemini-2.0-flash-001"], None],
+    )
+    allow_model_switch: Optional[bool] = Field(
+        None,
+        description="Model switching permission override. None = using access_type default.",
+        examples=[True, False, None],
+    )
 
-    api_key_prefix: Optional[str] = Field(None, examples=["ark_1234"])
-    api_key_last_used: Optional[datetime] = Field(None, examples=["2025-01-15T14:30:00"])
-    created_at: datetime
-    updated_at: datetime
+    api_key_prefix: Optional[str] = Field(
+        None,
+        description="First 8 characters of the channel's API key (for identification). Full key never shown after creation.",
+        examples=["ark_1234", "ark_5678"],
+    )
+    api_key_last_used: Optional[datetime] = Field(
+        None,
+        description="ISO 8601 timestamp of when the API key was last used (UTC). None if never used.",
+        examples=["2025-01-30T14:30:00Z", None],
+    )
+    created_at: datetime = Field(
+        ...,
+        description="ISO 8601 timestamp of when the channel was created (UTC)",
+        examples=["2025-01-15T10:00:00Z"],
+    )
+    updated_at: datetime = Field(
+        ...,
+        description="ISO 8601 timestamp of when the channel was last updated (UTC)",
+        examples=["2025-01-30T14:30:00Z"],
+    )
     usage: Optional[Dict[str, Any]] = Field(
         None,
-        description="Usage statistics for the channel (last 30 days by default)",
+        description=(
+            "Usage statistics for the channel (last 30 days by default). "
+            "Includes request counts, token usage, costs, and model breakdown. "
+            "Only included when explicitly requested with include_usage=true parameter."
+        ),
     )
 
 
@@ -298,28 +510,94 @@ class ChannelCreateResponse(BaseModel):
         }
     )
 
-    id: int = Field(..., examples=[1])
-    title: str = Field(..., examples=["تیم هوش مصنوعی داخلی", "Internal BI Team"])
-    channel_id: str = Field(..., examples=["Internal-BI"])
-    access_type: str = Field(..., examples=["private", "public"])
-    monthly_quota: Optional[int] = Field(None, examples=[100000])
-    daily_quota: Optional[int] = Field(None, examples=[5000])
-    is_active: bool = Field(..., examples=[True])
+    id: int = Field(
+        ...,
+        description="Unique database ID of the newly created channel",
+        examples=[1, 2, 42],
+        gt=0,
+    )
+    title: str = Field(
+        ...,
+        description="Display name of the channel (as created or defaulted to channel_id)",
+        examples=["تیم هوش مصنوعی داخلی", "Internal BI Team"],
+    )
+    channel_id: str = Field(
+        ...,
+        description="System identifier used for routing (as provided during creation)",
+        examples=["Internal-BI", "External-Marketing"],
+    )
+    access_type: str = Field(
+        ...,
+        description="Access type: 'public' or 'private'",
+        examples=["private", "public"],
+    )
+    monthly_quota: Optional[int] = Field(
+        None,
+        description="Monthly request quota (None = unlimited)",
+        examples=[100000, None],
+    )
+    daily_quota: Optional[int] = Field(
+        None,
+        description="Daily request quota (None = unlimited)",
+        examples=[5000, None],
+    )
+    is_active: bool = Field(
+        ...,
+        description="Channel activation status (always True for newly created channels)",
+        examples=[True],
+    )
 
     # Platform configuration
-    rate_limit: Optional[int] = Field(None, examples=[60, None])
-    max_history: Optional[int] = Field(None, examples=[30, None])
-    default_model: Optional[str] = Field(None, examples=["openai/gpt-5-chat", None])
-    available_models: Optional[List[str]] = Field(None, examples=[None])
-    allow_model_switch: Optional[bool] = Field(None, examples=[True, None])
+    rate_limit: Optional[int] = Field(
+        None,
+        description="Rate limit override (None = using access_type default)",
+        examples=[60, None],
+    )
+    max_history: Optional[int] = Field(
+        None,
+        description="Max history override (None = using access_type default)",
+        examples=[30, None],
+    )
+    default_model: Optional[str] = Field(
+        None,
+        description="Default model override (None = using access_type default)",
+        examples=["openai/gpt-5-chat", None],
+    )
+    available_models: Optional[List[str]] = Field(
+        None,
+        description="Available models override (None = using access_type default)",
+        examples=[["openai/gpt-5-chat"], None],
+    )
+    allow_model_switch: Optional[bool] = Field(
+        None,
+        description="Model switching override (None = using access_type default)",
+        examples=[True, None],
+    )
 
-    created_at: datetime
+    created_at: datetime = Field(
+        ...,
+        description="ISO 8601 timestamp of when the channel was created",
+        examples=["2025-01-30T10:00:00Z"],
+    )
     api_key: str = Field(
         ...,
-        description="Full API key - shown only once!",
-        examples=["ark_1234567890abcdef1234567890abcdef12345678"],
+        min_length=48,
+        max_length=48,
+        description=(
+            "FULL API KEY - Shown ONLY ONCE during creation! "
+            "Format: 'ark_' prefix + 44 character hash (48 chars total). "
+            "Save this immediately - it cannot be retrieved later. "
+            "Use this key in Authorization: Bearer <api_key> header for API requests."
+        ),
+        examples=[
+            "ark_1234567890abcdef1234567890abcdef12345678",
+            "ark_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0",
+        ],
     )
-    warning: str = "Save this API key securely. It will not be shown again."
+    warning: str = Field(
+        default="Save this API key securely. It will not be shown again.",
+        description="Critical warning about API key storage - this is the only time the full key is visible",
+    )
 
 
 class UsageStatsResponse(BaseModel):
@@ -353,18 +631,72 @@ class UsageStatsResponse(BaseModel):
         }
     )
 
-    channel_id: Optional[int] = Field(None, examples=[1])
+    channel_id: Optional[int] = Field(
+        None,
+        description="Database ID of the channel (None for aggregated cross-channel stats)",
+        examples=[1, 2, None],
+        gt=0,
+    )
     channel_name: Optional[str] = Field(
         None,
-        description="Channel display name (supports Persian/Farsi)",
-        examples=["تیم هوش مصنوعی داخلی", "Internal BI Channel"],
+        description=(
+            "Human-friendly channel name (supports Persian/Farsi). "
+            "Taken from the channel's title field. "
+            "None for aggregated cross-channel statistics."
+        ),
+        examples=["تیم هوش مصنوعی داخلی", "Internal BI Channel", None],
     )
-    period: dict
-    requests: dict
-    tokens: dict
-    cost: dict
-    performance: dict
-    models: List[dict]
+    period: dict = Field(
+        ...,
+        description=(
+            "Time period for these statistics. "
+            "Contains: start (ISO 8601), end (ISO 8601), days (integer). "
+            "Example: {'start': '2025-01-01T00:00:00Z', 'end': '2025-01-31T23:59:59Z', 'days': 30}"
+        ),
+    )
+    requests: dict = Field(
+        ...,
+        description=(
+            "Request statistics. "
+            "Contains: total (int), successful (int), failed (int). "
+            "Example: {'total': 15000, 'successful': 14850, 'failed': 150}"
+        ),
+    )
+    tokens: dict = Field(
+        ...,
+        description=(
+            "Token usage statistics. "
+            "Contains: total (int), average_per_request (float). "
+            "Tokens are the units consumed by AI models (input + output). "
+            "Example: {'total': 1500000, 'average_per_request': 100}"
+        ),
+    )
+    cost: dict = Field(
+        ...,
+        description=(
+            "Estimated cost statistics. "
+            "Contains: total (float), currency (str, typically 'USD'). "
+            "Costs are estimates based on token usage and model pricing. "
+            "Example: {'total': 15.50, 'currency': 'USD'}"
+        ),
+    )
+    performance: dict = Field(
+        ...,
+        description=(
+            "Performance metrics. "
+            "Contains: average_response_time_ms (int), p95_response_time_ms (int). "
+            "Measures API response times (excluding AI service latency). "
+            "Example: {'average_response_time_ms': 850, 'p95_response_time_ms': 1200}"
+        ),
+    )
+    models: List[dict] = Field(
+        ...,
+        description=(
+            "Breakdown of usage by AI model. "
+            "Each entry contains: model (str, friendly name), requests (int), percentage (float). "
+            "Example: [{'model': 'Gemini 2.0 Flash', 'requests': 8000, 'percentage': 53.3}]"
+        ),
+    )
 
 
 # ===========================
@@ -446,16 +778,64 @@ class AdminDashboardResponse(BaseModel):
         }
     )
 
-    service: str = Field(..., examples=["Arash External API Service"])
-    version: str = Field(..., examples=["1.0.0"])
-    status: str = Field(..., examples=["healthy"])
-    timestamp: datetime
-    platforms: Dict[str, Dict[str, Any]]
-    statistics: Dict[str, Any]
+    service: str = Field(
+        ...,
+        description="Service name identifier",
+        examples=["Arash External API Service"],
+    )
+    version: str = Field(
+        ...,
+        description="Semantic version of the API service",
+        examples=["1.0.0", "1.2.3"],
+    )
+    status: str = Field(
+        ...,
+        description=(
+            "Overall service health status. "
+            "'healthy': All systems operational (AI service responsive). "
+            "'degraded': Service running but AI service unavailable. "
+            "'down': Critical failure (database unavailable, etc.)."
+        ),
+        examples=["healthy", "degraded", "down"],
+    )
+    timestamp: datetime = Field(
+        ...,
+        description="ISO 8601 timestamp when this dashboard data was generated (UTC)",
+        examples=["2025-01-30T14:30:00Z"],
+    )
+    platforms: Dict[str, Dict[str, Any]] = Field(
+        ...,
+        description=(
+            "Platform configurations for 'telegram' (public) and 'internal' (private). "
+            "Each platform contains: type, model(s), rate_limit, commands, max_history, features. "
+            "Shows current configuration for all platforms managed by the service."
+        ),
+    )
+    statistics: Dict[str, Any] = Field(
+        ...,
+        description=(
+            "Real-time statistics for active sessions and usage. "
+            "Contains: total_sessions, active_sessions, telegram (breakdown), internal (breakdown). "
+            "Telegram breakdown: sessions, messages, active, model. "
+            "Internal breakdown: sessions, messages, active, models_used, channel_breakdown."
+        ),
+    )
 
 
 @router.get(
     "/",
+    summary="Get admin dashboard with platform overview and statistics",
+    description=(
+        "Retrieve comprehensive admin dashboard data including service health, platform configurations, "
+        "and real-time session statistics across all channels. "
+        "Shows Telegram and internal platform settings, active sessions, model usage breakdown, "
+        "and per-channel analytics. Super admin access required."
+    ),
+    response_description=(
+        "Complete admin dashboard with service status, platform configurations (Telegram + Internal), "
+        "and detailed statistics including session counts, message volumes, and model usage by channel."
+    ),
+    operation_id="get_admin_dashboard",
     response_model=AdminDashboardResponse,
     responses={
         200: {
@@ -687,6 +1067,18 @@ async def admin_dashboard(
 
 @router.post(
     "/channels",
+    summary="Create new channel with auto-generated API key",
+    description=(
+        "Create a new channel for external integrations with an automatically generated API key. "
+        "The full API key is returned ONLY ONCE in this response - save it securely. "
+        "Channels can be configured with custom quotas, rate limits, AI models, and access controls. "
+        "Super admin access required."
+    ),
+    response_description=(
+        "Newly created channel details including the FULL API KEY (shown only once). "
+        "Save the API key immediately - it cannot be retrieved later."
+    ),
+    operation_id="create_channel",
     response_model=ChannelCreateResponse,
     responses={
         200: {
@@ -924,6 +1316,18 @@ class ChannelsListResponse(BaseModel):
 
 @router.get(
     "/channels",
+    summary="List all channels with usage statistics",
+    description=(
+        "Retrieve a list of all channels with their configuration and usage statistics. "
+        "Optionally filter by active status, specify the time period for usage data, "
+        "or include an aggregated total report across all channels. "
+        "Super admin access required."
+    ),
+    response_description=(
+        "List of channels with usage data for the specified period. "
+        "Optionally includes aggregated total report when totally=true."
+    ),
+    operation_id="list_channels",
     response_model=ChannelsListResponse,
     responses={
         200: {
@@ -1163,6 +1567,19 @@ async def get_channels(
 
 @router.patch(
     "/channels/{channel_id}",
+    summary="Update channel configuration",
+    description=(
+        "Update one or more settings for an existing channel. "
+        "All fields are optional - only provide the fields you want to update. "
+        "Returns the updated channel with usage statistics for the specified period. "
+        "WARNING: Changing channel_id will break existing sessions and integrations. "
+        "Super admin access required."
+    ),
+    response_description=(
+        "Updated channel configuration with usage statistics. "
+        "Includes all current settings and recent usage data."
+    ),
+    operation_id="update_channel",
     response_model=ChannelResponse,
     responses={
         200: {

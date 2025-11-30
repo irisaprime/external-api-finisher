@@ -11,28 +11,89 @@ from app.core.constants import MessageType
 
 
 class MessageAttachment(BaseModel):
-    """Message attachment model"""
+    """
+    Message attachment metadata for non-text content (images, documents, voice, video).
+
+    Attachments can be provided via URL, file ID (platform-specific), or base64-encoded data.
+    The service may process certain attachment types (e.g., images with vision models).
+
+    **Supported Types:**
+    - `image`: Photos, screenshots, diagrams (processed with vision-enabled AI models)
+    - `document`: PDFs, Word docs, spreadsheets (metadata only, content not processed)
+    - `voice`: Audio messages (may support transcription in future)
+    - `video`: Video files (metadata only)
+    - `sticker`: Platform stickers (metadata only)
+    - `location`: Geographic coordinates (metadata only)
+
+    **Note:** Currently, only image attachments are fully processed by AI models with vision capabilities.
+    Other types are logged but not sent to the AI service.
+    """
 
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
                     "type": "image",
-                    "url": "https://example.com/image.jpg",
-                    "file_id": "file_12345",
+                    "url": "https://cdn.example.com/uploads/photo_2025_01_15.jpg",
                     "mime_type": "image/jpeg",
-                    "file_size": 102400,
-                }
+                    "file_size": 245760,
+                },
+                {
+                    "type": "image",
+                    "file_id": "telegram_AgACAgQAAxkBAAIC",
+                    "mime_type": "image/png",
+                    "file_size": 512000,
+                },
+                {
+                    "type": "document",
+                    "url": "https://docs.example.com/report_q4_2024.pdf",
+                    "mime_type": "application/pdf",
+                    "file_size": 1048576,
+                },
+                {
+                    "type": "voice",
+                    "data": "SGVsbG8gV29ybGQh",  # Base64 encoded audio
+                    "mime_type": "audio/ogg",
+                    "file_size": 32768,
+                },
             ]
         }
     )
 
-    type: MessageType
-    url: Optional[str] = None
-    file_id: Optional[str] = None
-    mime_type: Optional[str] = None
-    file_size: Optional[int] = None
-    data: Optional[str] = None  # Base64 encoded data
+    type: MessageType = Field(
+        ...,
+        description="Type of attachment (image, document, voice, video, sticker, location)",
+        examples=["image", "document", "voice"],
+    )
+    url: Optional[str] = Field(
+        None,
+        description="Public URL to the attachment file (HTTP/HTTPS). Used for remote files.",
+        examples=[
+            "https://cdn.example.com/image.jpg",
+            "https://storage.example.com/doc.pdf",
+        ],
+    )
+    file_id: Optional[str] = Field(
+        None,
+        description="Platform-specific file identifier (e.g., Telegram file_id). Used for platform-native file references.",
+        examples=["telegram_AgACAgQAAxkBAAIC", "discord_123456789"],
+    )
+    mime_type: Optional[str] = Field(
+        None,
+        description="MIME type of the attachment (e.g., 'image/jpeg', 'application/pdf')",
+        examples=["image/jpeg", "image/png", "application/pdf", "audio/ogg"],
+    )
+    file_size: Optional[int] = Field(
+        None,
+        description="File size in bytes. Used for validation and logging.",
+        examples=[102400, 245760, 1048576],
+        ge=0,
+    )
+    data: Optional[str] = Field(
+        None,
+        description="Base64-encoded file data for inline attachments. Alternative to URL/file_id for small files.",
+        examples=["SGVsbG8gV29ybGQh", "iVBORw0KGgoAAAANSUhEUgAAAAUA..."],
+    )
 
     @field_validator("data")
     @classmethod
@@ -45,13 +106,31 @@ class MessageAttachment(BaseModel):
 
 class IncomingMessage(BaseModel):
     """
-    Simplified incoming message for chat endpoint.
+    Incoming chat message request for processing by the AI service.
 
-    Architecture:
-    - Each user has ONE conversation per platform/channel (no conversation_id needed)
-    - Messages are persisted in database
-    - /clear command excludes previous messages from AI context (but keeps in DB)
-    - Platform auto-detected from API key's channel.channel_id
+    **Architecture & Session Management:**
+    - Each user maintains ONE continuous conversation per platform/channel
+    - No conversation_id required - sessions are automatically managed based on `user_id`
+    - Messages are persisted in the database for audit and conversation history
+    - `/clear` command excludes previous messages from AI context while preserving database records
+    - Platform routing is auto-detected from the API key's channel configuration
+
+    **Usage Pattern:**
+    1. External channel sends message with user_id and text
+    2. Service looks up or creates session for this user on this channel
+    3. Message is added to conversation history
+    4. AI processes message with full conversation context
+    5. Response is returned and logged
+
+    **Commands:**
+    Messages starting with `/` are treated as commands (e.g., `/clear`, `/model`, `/help`).
+    Regular text messages are processed by the AI model.
+
+    **User ID Guidelines:**
+    - Must be unique within your channel/platform
+    - Can be any string format: numeric IDs, UUIDs, emails, usernames
+    - Same user_id always returns to the same conversation
+    - Different channels maintain separate conversations even with same user_id
     """
 
     model_config = ConfigDict(
@@ -59,15 +138,23 @@ class IncomingMessage(BaseModel):
             "examples": [
                 {
                     "user_id": "user_12345",
-                    "text": "سلام، چطوری؟",
+                    "text": "سلام، چطور می‌تونم سفارشم رو پیگیری کنم؟",
                 },
                 {
-                    "user_id": "telegram_987654",
-                    "text": "What is the weather like today?",
+                    "user_id": "telegram_987654321",
+                    "text": "What are the main differences between GPT-4 and Claude?",
                 },
                 {
-                    "user_id": "customer_001",
-                    "text": "Help me with my order",
+                    "user_id": "customer@example.com",
+                    "text": "Help me understand my invoice",
+                },
+                {
+                    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "text": "/clear",
+                },
+                {
+                    "user_id": "internal_user_42",
+                    "text": "/model gpt5",
                 },
             ]
         }
@@ -75,25 +162,75 @@ class IncomingMessage(BaseModel):
 
     user_id: str = Field(
         ...,
-        description="Unique user identifier (client-provided, e.g., telegram ID, customer ID, email)",
-        examples=["user_12345", "telegram_987654", "customer@example.com"],
+        min_length=1,
+        max_length=255,
+        description=(
+            "Unique identifier for the user within your channel. "
+            "Used for session management and conversation isolation. "
+            "Can be any format: numeric ID, UUID, email, username, or custom identifier. "
+            "Same user_id always returns to the same conversation on this channel."
+        ),
+        examples=[
+            "user_12345",
+            "telegram_987654321",
+            "customer@example.com",
+            "550e8400-e29b-41d4-a716-446655440000",
+        ],
     )
     text: str = Field(
         ...,
-        description="Message text content",
-        examples=["سلام!", "Hello, how can I help?", "/clear"],
+        min_length=1,
+        max_length=10000,
+        description=(
+            "Message text content to process. "
+            "Can be a regular chat message or a command (starting with '/'). "
+            "Commands: /clear (reset history), /model (switch AI model), /help (show available commands), /status (session info). "
+            "Regular messages are sent to the AI model for processing."
+        ),
+        examples=[
+            "سلام! چطور می‌تونم کمکتون کنم؟",
+            "What is the capital of France?",
+            "Explain quantum computing in simple terms",
+            "/clear",
+            "/model gemini",
+            "/help",
+        ],
     )
 
 
 class BotResponse(BaseModel):
     """
-    Bot response model for chat endpoint.
+    Response returned after processing a chat message.
 
-    Architecture:
-    - Each user has ONE conversation per platform/channel (no conversation_id)
-    - total_message_count shows total messages in history (persists through /clear)
-    - /clear removes messages from AI context but keeps in database
-    - Commands (e.g., /model, /help, /clear) are NOT counted in total_message_count
+    **Response Structure:**
+    - `success`: Indicates whether the request was processed successfully
+    - `response`: The AI-generated text response or error message (user-facing)
+    - `model`: The AI model used to generate the response
+    - `total_message_count`: Total chat messages in conversation (excludes commands)
+    - `error`: Machine-readable error code when success=false
+
+    **Success Response (success=true):**
+    Contains the AI's response in the `response` field, along with metadata about the
+    current model and message count. The `error` field will be null.
+
+    **Error Response (success=false):**
+    Contains a user-friendly error message in the `response` field and a machine-readable
+    error code in the `error` field. The `model` and `total_message_count` may be null.
+
+    **Conversation Tracking:**
+    - `total_message_count` persists through `/clear` commands (database count)
+    - Only actual chat messages and AI responses are counted
+    - Commands (`/clear`, `/model`, `/help`, etc.) are NOT counted
+    - Count includes both user messages and assistant responses
+
+    **Error Codes:**
+    - `rate_limit_exceeded`: User has exceeded rate limit for this channel
+    - `ai_service_unavailable`: AI service is down or unreachable
+    - `authentication_failed`: Invalid or missing API key
+    - `quota_exceeded`: Monthly or daily quota has been reached
+    - `access_denied`: User attempting to access another user's conversation
+    - `invalid_model`: Requested model is not available for this channel
+    - `processing_error`: Unexpected error during message processing
     """
 
     model_config = ConfigDict(
@@ -101,50 +238,108 @@ class BotResponse(BaseModel):
             "examples": [
                 {
                     "success": True,
-                    "response": "سلام! چطور می‌تونم کمکتون کنم؟",
+                    "response": "سلام! من دستیار هوش مصنوعی هستم. چطور می‌تونم کمکتون کنم؟",
                     "model": "Gemini 2.0 Flash",
                     "total_message_count": 2,
                 },
                 {
                     "success": True,
-                    "response": "برای تغییر مدل، از دستور /model استفاده کنید.",
+                    "response": "Paris is the capital of France. It's known for the Eiffel Tower, the Louvre Museum, and its rich cultural history.",
+                    "model": "GPT-5 Chat",
+                    "total_message_count": 8,
+                },
+                {
+                    "success": True,
+                    "response": "✅ مدل به Claude Sonnet 4 تغییر یافت. حالا می‌تونید از قابلیت‌های پیشرفته‌تر استفاده کنید.",
+                    "model": "Claude Sonnet 4",
+                    "total_message_count": 15,
+                },
+                {
+                    "success": True,
+                    "response": "✨ تاریخچه گفتگو پاک شد! آماده شروع گفتگوی جدید هستم.",
                     "model": "DeepSeek Chat V3",
-                    "total_message_count": 10,
+                    "total_message_count": 24,
                 },
                 {
                     "success": False,
                     "error": "rate_limit_exceeded",
-                    "response": "⚠️ محدودیت سرعت. لطفاً قبل از ارسال پیام بعدی کمی صبر کنید.\n\nمحدودیت: 60 پیام در دقیقه",
+                    "response": "⚠️ محدودیت سرعت. شما بیش از حد مجاز پیام ارسال کرده‌اید.\n\nمحدودیت: 60 پیام در دقیقه\nلطفاً چند ثانیه صبر کنید و دوباره امتحان کنید.",
                 },
                 {
                     "success": False,
                     "error": "ai_service_unavailable",
-                    "response": "متأسفم، سرویس هوش مصنوعی در حال حاضر در دسترس نیست.",
+                    "response": "متأسفم، سرویس هوش مصنوعی در حال حاضر در دسترس نیست. لطفاً چند لحظه دیگر دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.",
+                },
+                {
+                    "success": False,
+                    "error": "quota_exceeded",
+                    "response": "⚠️ سهمیه ماهانه شما تمام شده است. برای افزایش سهمیه با مدیر سیستم تماس بگیرید.",
+                },
+                {
+                    "success": False,
+                    "error": "access_denied",
+                    "response": "❌ دسترسی رد شد. این مکالمه متعلق به کاربر دیگری است.",
                 },
             ]
         }
     )
 
-    success: bool = Field(..., description="Request success status", examples=[True, False])
+    success: bool = Field(
+        ...,
+        description=(
+            "Indicates whether the request was processed successfully. "
+            "True for successful AI responses, False for errors (rate limits, service unavailable, etc.)"
+        ),
+        examples=[True, False],
+    )
     response: Optional[str] = Field(
         None,
-        description="Response text from AI or error message",
-        examples=["سلام! چطور می‌تونم کمکتون کنم؟"],
+        description=(
+            "The response text - either AI-generated content (when success=true) "
+            "or a user-friendly error message (when success=false). "
+            "May include Persian/English text depending on the user's message language."
+        ),
+        examples=[
+            "سلام! چطور می‌تونم کمکتون کنم؟",
+            "Paris is the capital of France.",
+            "⚠️ Rate limit exceeded. Please wait.",
+        ],
     )
     model: Optional[str] = Field(
         None,
-        description="User-friendly AI model name currently in use",
-        examples=["Gemini 2.0 Flash", "DeepSeek Chat V3", "GPT-4o Mini"],
+        description=(
+            "User-friendly name of the AI model used to generate the response. "
+            "Examples: 'Gemini 2.0 Flash', 'GPT-5 Chat', 'Claude Sonnet 4', 'DeepSeek Chat V3'. "
+            "May be null in error responses."
+        ),
+        examples=["Gemini 2.0 Flash", "GPT-5 Chat", "Claude Sonnet 4", "DeepSeek Chat V3"],
     )
     total_message_count: Optional[int] = Field(
         None,
-        description="Total messages in conversation history (user + assistant). Persists through /clear. NOTE: Commands (e.g., /model, /help, /clear) are NOT included in this count - only actual chat messages and AI responses.",
-        examples=[2, 10, 24],
+        description=(
+            "Total number of chat messages in conversation history (user messages + AI responses). "
+            "Persists through /clear commands (database count, not AI context). "
+            "Commands like /clear, /model, /help are NOT counted - only actual chat messages. "
+            "May be null in error responses."
+        ),
+        examples=[2, 8, 15, 24, 50],
+        ge=0,
     )
     error: Optional[str] = Field(
         None,
-        description="Error code if success=false",
-        examples=["rate_limit_exceeded", "ai_service_unavailable", "authentication_failed"],
+        description=(
+            "Machine-readable error code when success=false. Null when success=true. "
+            "Use this field for programmatic error handling. "
+            "Common codes: rate_limit_exceeded, ai_service_unavailable, authentication_failed, "
+            "quota_exceeded, access_denied, invalid_model, processing_error."
+        ),
+        examples=[
+            "rate_limit_exceeded",
+            "ai_service_unavailable",
+            "authentication_failed",
+            "quota_exceeded",
+            "access_denied",
+        ],
     )
 
 
@@ -306,30 +501,116 @@ class HealthCheckResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Error response model"""
+    """
+    Standardized error response model for HTTP errors (4xx, 5xx status codes).
+
+    This model is used for HTTP-level errors like authentication failures, validation errors,
+    and server errors. It's distinct from the BotResponse error format (which uses success=false).
+
+    **When This Model Is Used:**
+    - 401 Unauthorized: Missing or invalid authentication
+    - 403 Forbidden: Insufficient permissions or inactive API key
+    - 404 Not Found: Resource doesn't exist (channel, user, etc.)
+    - 422 Unprocessable Entity: Request validation failed
+    - 429 Too Many Requests: Rate limit exceeded at HTTP level
+    - 500 Internal Server Error: Unexpected server errors
+    - 503 Service Unavailable: Database or AI service down
+
+    **BotResponse vs ErrorResponse:**
+    - `BotResponse` (success=false): Business logic errors within successful HTTP requests (e.g., user rate limit)
+    - `ErrorResponse`: HTTP protocol errors (e.g., authentication failure, server error)
+
+    **Fields:**
+    - `success`: Always false for error responses
+    - `error`: Short, machine-readable error type/category
+    - `detail`: Human-readable detailed explanation
+    - `timestamp`: When the error occurred (UTC)
+    """
 
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
                     "success": False,
-                    "error": "Authentication required",
-                    "detail": "No valid API key provided",
-                    "timestamp": "2025-01-15T14:30:00",
+                    "error": "authentication_required",
+                    "detail": "Authentication required. Please provide an API key in the Authorization header.",
+                    "timestamp": "2025-01-30T14:30:00Z",
                 },
                 {
                     "success": False,
-                    "error": "Invalid API key",
-                    "detail": "The provided API key is invalid or has been revoked",
-                    "timestamp": "2025-01-15T14:30:00",
+                    "error": "invalid_api_key",
+                    "detail": "The provided API key is invalid or has been revoked. Please check your credentials.",
+                    "timestamp": "2025-01-30T14:30:00Z",
+                },
+                {
+                    "success": False,
+                    "error": "channel_not_found",
+                    "detail": "Channel with ID 123 does not exist or has been deleted.",
+                    "timestamp": "2025-01-30T14:30:00Z",
+                },
+                {
+                    "success": False,
+                    "error": "validation_error",
+                    "detail": "Request validation failed. Please check the request body schema.",
+                    "timestamp": "2025-01-30T14:30:00Z",
+                },
+                {
+                    "success": False,
+                    "error": "internal_server_error",
+                    "detail": "An unexpected error occurred. Please try again later or contact support.",
+                    "timestamp": "2025-01-30T14:30:00Z",
+                },
+                {
+                    "success": False,
+                    "error": "service_unavailable",
+                    "detail": "The AI service is temporarily unavailable. Please try again in a few moments.",
+                    "timestamp": "2025-01-30T14:30:00Z",
+                },
+                {
+                    "success": False,
+                    "error": "insufficient_permissions",
+                    "detail": "You do not have permission to access this resource. Super admin access required.",
+                    "timestamp": "2025-01-30T14:30:00Z",
                 },
             ]
         }
     )
 
-    success: bool = Field(False, examples=[False])
-    error: str = Field(
-        ..., examples=["Authentication required", "Invalid API key", "Channel not found"]
+    success: bool = Field(
+        False,
+        description="Always false for error responses. Indicates the request failed at HTTP level.",
+        examples=[False],
     )
-    detail: Optional[str] = Field(None, examples=["No valid API key provided"])
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    error: str = Field(
+        ...,
+        description=(
+            "Machine-readable error type/category for programmatic error handling. "
+            "Examples: authentication_required, invalid_api_key, channel_not_found, validation_error, "
+            "internal_server_error, service_unavailable, insufficient_permissions."
+        ),
+        examples=[
+            "authentication_required",
+            "invalid_api_key",
+            "channel_not_found",
+            "validation_error",
+            "insufficient_permissions",
+        ],
+    )
+    detail: Optional[str] = Field(
+        None,
+        description=(
+            "Human-readable detailed explanation of the error. "
+            "Provides context and guidance for resolving the issue. "
+            "May be displayed to end users or logged for debugging."
+        ),
+        examples=[
+            "Authentication required. Please provide an API key in the Authorization header.",
+            "The provided API key is invalid or has been revoked.",
+            "Channel with ID 123 does not exist.",
+        ],
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="ISO 8601 timestamp (UTC) when the error occurred. Used for logging and debugging.",
+        examples=["2025-01-30T14:30:00Z", "2025-01-30T15:45:30.123456Z"],
+    )

@@ -49,6 +49,17 @@ router = APIRouter()
 
 @router.post(
     "/chat",
+    summary="Process chat message with AI",
+    description=(
+        "Process a user's chat message through the AI service and return a response. "
+        "Supports conversation history, commands, and multi-model routing. "
+        "Each user maintains one continuous conversation per channel with automatic session management."
+    ),
+    response_description=(
+        "AI-generated response or error message with conversation metadata. "
+        "Includes the model used, message count, and success status."
+    ),
+    operation_id="process_chat_message",
     response_model=BotResponse,
     responses={
         200: {
@@ -336,6 +347,17 @@ async def chat(
 
 @router.get(
     "/commands",
+    summary="Get available bot commands",
+    description=(
+        "Retrieve the list of available commands for the authenticated channel with Persian descriptions. "
+        "Commands vary based on channel type (Telegram vs. private channels). "
+        "Private channels typically have access to model switching and advanced commands."
+    ),
+    response_description=(
+        "List of available commands with descriptions and usage instructions in Persian. "
+        "Filtered based on channel access level and configuration."
+    ),
+    operation_id="get_available_commands",
     responses={
         200: {
             "description": "List of available commands",

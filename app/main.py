@@ -178,11 +178,148 @@ async def periodic_cleanup():
             logger.error(f"Error in periodic cleanup: {e}")
 
 
+# OpenAPI Tags Metadata
+tags_metadata = [
+    {
+        "name": "Chat & Commands",
+        "description": """
+**Chat message processing and command management for external channels.**
+
+These endpoints allow external channels (clients) to send chat messages and retrieve available commands.
+Authentication is required via API keys for channel access or Telegram service key for bot access.
+
+**Key Features:**
+- Process chat messages with AI models
+- Retrieve available commands for the authenticated channel
+- Support for both Telegram and custom channel integrations
+- Automatic session management and conversation history
+        """,
+    },
+    {
+        "name": "Channel Management & Administration",
+        "description": """
+**Administrative endpoints for managing channels, API keys, and usage analytics.**
+
+These endpoints are **exclusively accessible to super administrators** via super admin API keys
+defined in the environment configuration (not stored in the database).
+
+**Capabilities:**
+- Create, update, and manage channels
+- View comprehensive usage statistics across all channels
+- Monitor platform configurations (Telegram + Internal channels)
+- Track API key usage and performance metrics
+
+**Security Note:** External channels have no access to these endpoints. Only super admins can view
+platform-wide information and manage multi-tenant configurations.
+        """,
+    },
+    {
+        "name": "Health & Monitoring",
+        "description": """
+**Service health check and status monitoring endpoints.**
+
+These endpoints provide real-time health status for monitoring systems and load balancers.
+No authentication required - designed for infrastructure monitoring.
+
+**Use Cases:**
+- Kubernetes liveness/readiness probes
+- Load balancer health checks
+- Service discovery and monitoring
+- Uptime tracking
+        """,
+    },
+]
+
 # Create FastAPI app
 app = FastAPI(
     title="Arash External API Service",
     version="1.0.0",
-    description="External API service supporting Telegram (public) and Internal (private) platforms with enterprise features",
+    description="""
+# Arash External API Service
+
+A production-ready, multi-tenant AI chatbot service supporting both public (Telegram) and private (custom channel) integrations with enterprise-grade features.
+
+## 🚀 Key Features
+
+### Multi-Platform Support
+- **Telegram Integration**: Public bot accessible to all Telegram users
+- **Custom Channel Integrations**: Private, isolated channels for enterprise clients
+- **Multi-Model AI**: Support for GPT, Claude, Gemini, DeepSeek, and more
+
+### Enterprise Features
+- **Two-Tier Authentication**: Super admin keys and channel-level API keys
+- **Channel Isolation**: Complete data separation between channels
+- **Usage Tracking**: Comprehensive analytics and quota management
+- **Rate Limiting**: Per-user, per-channel rate controls
+- **Session Management**: Persistent conversation history with automatic cleanup
+
+### Security & Compliance
+- **API Key Authentication**: SHA256-hashed keys with prefix visibility
+- **Access Control**: Role-based access (super admin vs. channel level)
+- **Quota Enforcement**: Monthly and daily usage limits
+- **Audit Logging**: Complete request/response tracking
+
+## 📚 API Overview
+
+### Public Endpoints (Channel Access)
+- `POST /v1/chat`: Process chat messages
+- `GET /v1/commands`: Get available commands
+- `GET /health`: Service health check (no auth required)
+
+### Admin Endpoints (Super Admin Only)
+- `GET /v1/admin/`: Admin dashboard with platform statistics
+- `POST /v1/admin/channels`: Create new channel with auto-generated API key
+- `GET /v1/admin/channels`: List all channels with usage stats
+- `PATCH /v1/admin/channels/{id}`: Update channel configuration
+
+## 🔐 Authentication
+
+### Channel API Keys
+- **Format**: `ark_` prefix + 40 character hash
+- **Usage**: Include in `Authorization: Bearer <key>` header
+- **Scope**: Access to `/v1/chat` and `/v1/commands` endpoints only
+
+### Super Admin Keys
+- **Configuration**: Set via `SUPER_ADMIN_API_KEYS` environment variable
+- **Usage**: Include in `Authorization: Bearer <key>` header
+- **Scope**: Full access to all `/v1/admin/*` endpoints
+
+### Telegram Service Key
+- **Configuration**: Set via `TELEGRAM_SERVICE_KEY` environment variable
+- **Usage**: Used by Telegram bot to access chat endpoints
+- **Scope**: Access to `/v1/chat` endpoint with Telegram platform routing
+
+## 🏗️ Architecture
+
+- **Session Management**: In-memory sessions with PostgreSQL persistence
+- **Channel Routing**: Automatic platform detection from API keys
+- **AI Service Integration**: Multi-model routing with fallback support
+- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
+- **Containerization**: Docker-ready with Kubernetes manifests
+
+## 📊 Usage Tracking
+
+All API requests are logged with:
+- Request count and success rate
+- Token usage and estimated costs
+- Response time metrics
+- Model usage breakdown
+- Per-channel analytics
+
+## 🔗 External Resources
+
+- [Full API Documentation](https://github.com/irisaprime/external-api-finisher)
+- [Architecture Guide](https://github.com/irisaprime/external-api-finisher/blob/main/ARCHITECTURE_HIERARCHY.md)
+    """,
+    contact={
+        "name": "Arash API Support",
+        "email": "support@arash-api.example.com",
+    },
+    license_info={
+        "name": "Proprietary",
+        "identifier": "Proprietary",
+    },
+    openapi_tags=tags_metadata,
     docs_url="/docs" if settings.ENABLE_API_DOCS else None,
     redoc_url="/redoc" if settings.ENABLE_API_DOCS else None,
     openapi_url="/openapi.json" if settings.ENABLE_API_DOCS else None,
@@ -223,6 +360,17 @@ app.include_router(admin_router, prefix="/v1")
 # Health check endpoint (for monitoring systems)
 @app.get(
     "/health",
+    summary="Service health check",
+    description=(
+        "Check the health status of the API service and its dependencies. "
+        "Returns 'healthy' if all services are operational, 'degraded' if the AI service is unavailable. "
+        "No authentication required - designed for monitoring systems, load balancers, and orchestration platforms."
+    ),
+    response_description=(
+        "Service health status with timestamp. "
+        "Status can be 'healthy' (all services operational) or 'degraded' (AI service unavailable)."
+    ),
+    operation_id="health_check",
     tags=["Health & Monitoring"],
     responses={
         200: {
