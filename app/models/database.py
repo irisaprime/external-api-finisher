@@ -149,7 +149,6 @@ class UsageLog(Base):
     model_used = Column(String(255), nullable=False)  # Friendly model name
 
     # Usage metrics
-    request_count = Column(Integer, default=1, nullable=False)
     tokens_used = Column(Integer, nullable=True)  # If available from AI service
     estimated_cost = Column(Float, nullable=True)  # If cost tracking is implemented
 
