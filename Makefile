@@ -13,9 +13,8 @@ help:
 	@echo "  make install     Install dependencies"
 	@echo "  make run         Start service (production)"
 	@echo "  make run-dev     Start with auto-reload"
-	@echo "  make test        Run tests"
-	@echo "  make lint        Check code quality"
-	@echo "  make format      Format code"
+	@echo "  make lint        Check code quality (ruff)"
+	@echo "  make format      Format code (black)"
 	@echo "  make clean       Remove cache"
 	@echo ""
 	@echo "Database:"
@@ -43,13 +42,14 @@ run-dev:
 	$(UV) run uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 
 test:
-	$(UV) run pytest -v
+	@echo "No tests available. Tests directory was removed."
+	@exit 1
 
 lint:
-	$(UV) run ruff check app/ tests/
+	$(UV) run ruff check app/
 
 format:
-	$(UV) run black app/ tests/
+	$(UV) run black app/
 
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

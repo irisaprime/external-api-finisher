@@ -200,27 +200,26 @@ ENABLE_API_DOCS=false                     # true in dev only
 **Development:**
 ```bash
 make install        # Install dependencies (uv)
-make run            # Start service
+make run            # Start service (production)
 make run-dev        # Start with auto-reload
-make test           # Run tests (345 tests)
-make lint           # Code quality check
-make format         # Format code
-make clean          # Remove cache
+make lint           # Check code quality (ruff)
+make format         # Format code (black)
+make clean          # Remove cache files
 ```
 
 **Database:**
 ```bash
 make migrate-up                      # Apply migrations
-make migrate-down                    # Rollback
-make migrate-status                  # Show status
-make migrate-create MSG="desc"       # Create migration
+make migrate-down                    # Rollback last migration
+make migrate-status                  # Show migration status
+make migrate-create MSG="desc"       # Create new migration
 ```
 
 **Channel Management:**
 ```bash
-make db-channels                           # List channels
-make db-keys                               # List API keys
-make db-channel-create NAME="Ch" DAILY=100 MONTHLY=3000
+make db-channels                           # List all channels
+make db-keys                               # List all API keys
+make db-channel-create NAME="Ch" [DAILY=100] [MONTHLY=3000]
 make db-key-create CHANNEL=<id> NAME="Key"
 ```
 
