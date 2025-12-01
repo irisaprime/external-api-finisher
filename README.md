@@ -149,15 +149,18 @@ make run-dev  # API at :3000, docs at :3000/docs (dev only)
 
 ## API Endpoints
 
-**Public** (All API keys):
-- `POST /v1/chat` - Send message, get AI response
-- `GET /v1/commands` - List available commands
+### Public Endpoints (All API Keys)
+- **`POST /v1/chat`** - Process chat message with AI (supports commands like `/clear`, `/model`)
+- **`GET /v1/commands`** - Get available commands for authenticated channel
+- **`GET /health`** - Service health check (no auth required)
 
-**Admin** (Super admin keys only):
-- `GET /v1/admin/channels` - List all channels
-- `POST /v1/admin/channels` - Create channel
-- `GET /v1/admin/stats` - Usage statistics
-- `GET /v1/admin/sessions` - Active sessions
+### Admin Endpoints (Super Admin Keys Only)
+- **`GET /v1/admin/`** - Admin dashboard with platform stats and session info
+- **`POST /v1/admin/channels`** - Create new channel with auto-generated API key
+- **`GET /v1/admin/channels`** - List all channels with usage statistics
+- **`PATCH /v1/admin/channels/{id}`** - Update channel configuration
+
+**OpenAPI Docs:** `/docs` and `/redoc` (enabled when `ENABLE_API_DOCS=true`)
 
 ---
 
@@ -197,27 +200,26 @@ ENABLE_API_DOCS=false                     # true in dev only
 **Development:**
 ```bash
 make install        # Install dependencies (uv)
-make run            # Start service
+make run            # Start service (production)
 make run-dev        # Start with auto-reload
-make test           # Run tests (345 tests)
-make lint           # Code quality check
-make format         # Format code
-make clean          # Remove cache
+make lint           # Check code quality (ruff)
+make format         # Format code (black)
+make clean          # Remove cache files
 ```
 
 **Database:**
 ```bash
 make migrate-up                      # Apply migrations
-make migrate-down                    # Rollback
-make migrate-status                  # Show status
-make migrate-create MSG="desc"       # Create migration
+make migrate-down                    # Rollback last migration
+make migrate-status                  # Show migration status
+make migrate-create MSG="desc"       # Create new migration
 ```
 
 **Channel Management:**
 ```bash
-make db-channels                           # List channels
-make db-keys                               # List API keys
-make db-channel-create NAME="Ch" DAILY=100 MONTHLY=3000
+make db-channels                           # List all channels
+make db-keys                               # List all API keys
+make db-channel-create NAME="Ch" [DAILY=100] [MONTHLY=3000]
 make db-key-create CHANNEL=<id> NAME="Key"
 ```
 

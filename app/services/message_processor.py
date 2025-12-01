@@ -325,13 +325,6 @@ class MessageProcessor:
     async def _handle_chat(self, session: ChatSession, message: IncomingMessage) -> str:
         """Handle chat message"""
         try:
-            # Prepare files if any
-            files = []
-            if message.attachments:
-                for att in message.attachments:
-                    if att.type == MessageType.IMAGE and att.data:
-                        files.append({"Data": att.data, "MIMEType": att.mime_type or "image/jpeg"})
-
             # Get max history for channel
             max_history = channel_manager.get_max_history(session.channel_identifier)
 
@@ -339,14 +332,13 @@ class MessageProcessor:
             try:
                 response = await ai_client.send_chat_request(
                     session_id=session.session_id,
-                    query=message.text or "این تصویر را توضیح بده؟",
+                    query=message.text,
                     history=session.get_recent_history(max_history),
                     pipeline=session.current_model,
-                    files=files,
                 )
 
                 # Update history
-                session.add_message("user", message.text or "[تصویر/پیوست]")
+                session.add_message("user", message.text)
                 session.add_message("assistant", response["Response"])
 
                 # Trim history if exceeds channel limit

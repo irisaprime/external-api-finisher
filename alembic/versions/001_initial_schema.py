@@ -75,7 +75,6 @@ def upgrade() -> None:
         sa.Column('session_id', sa.String(length=64), nullable=False),
         sa.Column('channel_identifier', sa.String(length=50), nullable=False),
         sa.Column('model_used', sa.String(length=255), nullable=False),
-        sa.Column('request_count', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('tokens_used', sa.Integer(), nullable=True),
         sa.Column('estimated_cost', sa.Float(), nullable=True),
         sa.Column('success', sa.Boolean(), nullable=False),
