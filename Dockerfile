@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq-dev \
     postgresql-client \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_VERSION=0.8.17
@@ -46,6 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     postgresql-client \
     curl \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 appuser && \
