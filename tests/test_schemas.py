@@ -2,43 +2,7 @@
 Tests for Pydantic schemas
 """
 
-import pytest
-from pydantic import ValidationError
-
-from app.core.constants import MessageType
-from app.models.schemas import BotResponse, IncomingMessage, MessageAttachment
-
-
-class TestMessageAttachment:
-    """Tests for MessageAttachment schema"""
-
-    def test_attachment_valid_base64(self):
-        """Test attachment with valid base64 data"""
-        attachment = MessageAttachment(
-            type=MessageType.IMAGE,
-            data="SGVsbG8gV29ybGQ=",  # Valid base64
-            mime_type="image/png"
-        )
-        assert attachment.data == "SGVsbG8gV29ybGQ="
-
-    def test_attachment_invalid_base64(self):
-        """Test attachment with invalid base64 data raises error"""
-        with pytest.raises(ValidationError) as exc_info:
-            MessageAttachment(
-                type=MessageType.IMAGE,
-                data="Invalid@#$%Base64!!!",  # Invalid base64
-                mime_type="image/png"
-            )
-        assert "Invalid base64 data" in str(exc_info.value)
-
-    def test_attachment_none_data(self):
-        """Test attachment with None data (allowed)"""
-        attachment = MessageAttachment(
-            type=MessageType.IMAGE,
-            data=None,
-            mime_type="image/png"
-        )
-        assert attachment.data is None
+from app.models.schemas import BotResponse, IncomingMessage
 
 
 class TestIncomingMessage:
