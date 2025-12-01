@@ -149,15 +149,18 @@ make run-dev  # API at :3000, docs at :3000/docs (dev only)
 
 ## API Endpoints
 
-**Public** (All API keys):
-- `POST /v1/chat` - Send message, get AI response
-- `GET /v1/commands` - List available commands
+### Public Endpoints (All API Keys)
+- **`POST /v1/chat`** - Process chat message with AI (supports commands like `/clear`, `/model`)
+- **`GET /v1/commands`** - Get available commands for authenticated channel
+- **`GET /health`** - Service health check (no auth required)
 
-**Admin** (Super admin keys only):
-- `GET /v1/admin/channels` - List all channels
-- `POST /v1/admin/channels` - Create channel
-- `GET /v1/admin/stats` - Usage statistics
-- `GET /v1/admin/sessions` - Active sessions
+### Admin Endpoints (Super Admin Keys Only)
+- **`GET /v1/admin/`** - Admin dashboard with platform stats and session info
+- **`POST /v1/admin/channels`** - Create new channel with auto-generated API key
+- **`GET /v1/admin/channels`** - List all channels with usage statistics
+- **`PATCH /v1/admin/channels/{id}`** - Update channel configuration
+
+**OpenAPI Docs:** `/docs` and `/redoc` (enabled when `ENABLE_API_DOCS=true`)
 
 ---
 
